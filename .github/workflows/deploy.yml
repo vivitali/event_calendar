@@ -1,0 +1,34 @@
+name: Deploy to Google Cloud Functions
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.1'
+
+      - name: Build
+        run: |
+          go mod download
+
+      - name: Deploy to Google Cloud Functions
+        uses: google-github-actions/deploy-cloud-functions@v2
+        with:
+          name: aggregate-events
+          runtime: go124
+          entry_point: AggregateEvents
+          region: us-central1
+          trigger_http: true
+          source_dir: .
+        env:
+          EVENTBRITE_API_KEY: ${{ secrets.EVENTBRITE_API_KEY }}
+          MEETUP_API_KEY: ${{ secrets.MEETUP_API_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
