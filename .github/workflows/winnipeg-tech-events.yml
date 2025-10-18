@@ -1,0 +1,148 @@
+name: Winnipeg Tech Events Scheduler
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM CST (2:00 PM UTC)
+    - cron: '0 14 * * 1'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        mocked: true
+        description: 'Run in test mode (no actual posting)'
+        required: false
+        default: 'false'
+        type: boolean
+      city:
+        description: 'City to fetch events for'
+        required: false
+        default: 'Winnipeg'
+        type: string
+      categories:
+        description: 'Event categories to fetch'
+        required: false
+        default: 'tech'
+        type: string
+
+env:
+  GO_VERSION: '1.25'
+  CITY: ${{ github.event.inputs.city || 'Winnipeg' }}
+  CATEGORIES: ${{ github.event.inputs.categories || 'tech' }}
+  TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+  PERIOD_DAYS: '30'
+
+jobs:
+  fetch-and-post-events:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Install dependencies
+      run: go mod download
+      
+    - name: Build scheduler
+      run: go build -o scheduler cmd/scheduler/main.go
+      
+    - name: Test connection (if not test mode)
+      if: env.TEST_MODE != 'true'
+      run: |
+        echo "Testing Telegram connection..."
+        ./scheduler || echo "Connection test failed, but continuing..."
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        TEST_MODE: 'true'
+        
+    - name: Run event scheduler
+      run: |
+        echo "🚀 Running Winnipeg Tech Events Scheduler..."
+        echo "Configuration:"
+        echo "  City: ${{ env.CITY }}"
+        echo "  Categories: ${{ env.CATEGORIES }}"
+        echo "  Period Days: ${{ env.PERIOD_DAYS }}"
+        echo "  Test Mode: ${{ env.TEST_MODE }}"
+        echo ""
+        
+        ./scheduler
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        CITY: ${{ env.CITY }}
+        CATEGORIES: ${{ env.CATEGORIES }}
+        PERIOD_DAYS: ${{ env.PERIOD_DAYS }}
+        TEST_MODE: ${{ env.TEST_MODE }}
+        
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: scheduler-logs-${{ github.run_number }}
+        path: |
+          scheduler
+        retention-days: 30
+        
+    - name: Send failure alert
+      if: failure() && env.TEST_MODE != 'true'
+      run: |
+        echo "❌ Scheduler failed, sending alert..."
+        curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}",
+            "text": "🚨 *Winnipeg Tech Events Alert*\n\nScheduler run failed!\n\n*Run ID:* '${{ github.run_id }}'\n*Workflow:* '${{ github.workflow }}'\n*Time:* '${{ github.event.head_commit.timestamp }}'\n\nCheck GitHub Actions logs for details.",
+            "parse_mode": "Markdown"
+          }' || echo "Failed to send alert"
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        
+    - name: Comment on PR (if applicable)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const testMode = '${{ env.TEST_MODE }}';
+          const result = testMode === 'true' ? '✅ Test mode completed successfully' : '✅ Events posted successfully';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `🤖 **Winnipeg Tech Events Scheduler**\n\n${result}\n\n*Run ID:* \`${{ github.run_id }}\`\n*Time:* \`${{ github.event.head_commit.timestamp }}\``
+          });
+          
+  notify-success:
+    runs-on: ubuntu-latest
+    needs: fetch-and-post-events
+    if: success() && env.TEST_MODE != 'true'
+    
+    steps:
+    - name: Send success notification
+      run: |
+        echo "✅ Scheduler completed successfully!"
+        curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}",
+            "text": "✅ *Winnipeg Tech Events Scheduler*\n\nSuccessfully completed scheduled run!\n\n*Run ID:* '${{ github.run_id }}'\n*Time:* '${{ github.event.head_commit.timestamp }}'",
+            "parse_mode": "Markdown"
+          }' || echo "Failed to send success notification"
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

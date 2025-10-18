@@ -10,23 +10,32 @@ A production-grade web application that discovers, aggregates, and shares techno
 - **Dev.events**: Discovers developer events in Winnipeg/Manitoba
 - **Smart Date Handling**: Intelligently parses various date formats including day names
 
+### 🎯 Dual Trigger System
+- **Manual Trigger**: Browser-based "Fetch Events Now" button for instant execution
+- **Automated Scheduling**: GitHub Actions, AWS Lambda, and serverless options
+- **Test Mode**: Debug without posting for safe testing
+- **Flexible Deployment**: Choose your preferred automation platform
+
 ### 🛡️ Robust Error Handling
 - **Automatic Fallback**: Switches to sample data if scraping fails
 - **Graceful Degradation**: Individual source failures don't break the app
 - **Real-time Debug Console**: Comprehensive logging and diagnostics
 - **UI Error Alerts**: Clear user notifications for all error states
+- **Alert System**: Telegram notifications for failures and successes
 
 ### 📱 Telegram Integration
 - **Bot API**: Direct messaging to configured Telegram groups
 - **Share URLs**: Pre-filled messages for manual sharing
 - **Character Limits**: Smart warnings for message length
 - **Message Preview**: Real-time preview of formatted messages
+- **Error Alerts**: Automatic notifications for system failures
 
 ### 🎨 Modern Web UI
 - **Responsive Design**: Works on desktop and mobile
 - **Dark Mode Support**: Automatic theme detection
 - **Smart Filtering**: By date range, source, and search terms
 - **Event Grouping**: Organizes events by "Today", "This Week", etc.
+- **Manual Controls**: Instant fetch and refresh buttons
 
 ## Quick Start
 
@@ -63,8 +72,13 @@ A production-grade web application that discovers, aggregates, and shares techno
 |----------|-------------|---------|
 | `PORT` | Server port | `8080` |
 | `PERIOD_DAYS` | Event search period in days | `30` |
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token for automated posting | - |
+| `TELEGRAM_CHAT_ID` | Telegram chat ID for automated posting | - |
+| `TEST_MODE` | Run in test mode (no actual posting) | `false` |
+| `CITY` | City to fetch events for | `Winnipeg` |
+| `CATEGORIES` | Event categories to fetch | `tech` |
 
-### Telegram Bot Setup (Optional)
+### Telegram Bot Setup
 
 1. **Create a Telegram Bot**:
    - Message [@BotFather](https://t.me/botfather) on Telegram
@@ -77,10 +91,106 @@ A production-grade web application that discovers, aggregates, and shares techno
    - Visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
    - Find the chat ID in the response
 
-3. **Configure in UI**:
-   - Enter bot token and chat ID in the Telegram panel
-   - Use "Send to Telegram" for direct messaging
-   - Use "Share via URL" for manual sharing
+3. **Configure**:
+   - **Manual Use**: Enter bot token and chat ID in the web UI Telegram panel
+   - **Automated Use**: Set environment variables for scheduled execution
+
+## Deployment Options
+
+### 1. Manual Trigger (Web Interface)
+
+The web interface provides instant manual control:
+
+- **Fetch Events Now**: Click to immediately fetch and display events
+- **Telegram Sharing**: Select events and share via Bot API or URL
+- **Debug Console**: View real-time logs and diagnostics
+- **Test Mode**: Toggle test mode for safe debugging
+
+### 2. GitHub Actions (Recommended)
+
+Automated scheduling with GitHub Actions:
+
+1. **Set Repository Secrets**:
+   ```
+   TELEGRAM_BOT_TOKEN=your_bot_token
+   TELEGRAM_CHAT_ID=your_chat_id
+   ```
+
+2. **Enable Workflow**:
+   - The workflow runs every Monday at 9 AM CST
+   - Manual triggers available via GitHub UI
+   - Test mode support for safe testing
+
+3. **Monitor Execution**:
+   - View logs in GitHub Actions tab
+   - Receive success/failure notifications
+   - Automatic error alerts via Telegram
+
+### 3. AWS Lambda
+
+Serverless execution with AWS Lambda:
+
+1. **Deploy Function**:
+   ```bash
+   cd lambda
+   ./deploy.sh
+   ```
+
+2. **Configure Environment Variables**:
+   ```bash
+   aws lambda update-function-configuration \
+     --function-name winnipeg-tech-events \
+     --environment Variables='{
+       "TELEGRAM_BOT_TOKEN":"your_token",
+       "TELEGRAM_CHAT_ID":"your_chat_id"
+     }'
+   ```
+
+3. **Schedule Execution**:
+   - EventBridge rule automatically created
+   - Runs every Monday at 9 AM CST
+   - Manual triggers via AWS Console
+
+### 4. Google Cloud Functions
+
+Deploy to Google Cloud Functions:
+
+1. **Create Function**:
+   ```bash
+   gcloud functions deploy winnipeg-tech-events \
+     --runtime python311 \
+     --trigger-http \
+     --entry-point lambda_handler \
+     --source lambda/
+   ```
+
+2. **Set Environment Variables**:
+   ```bash
+   gcloud functions deploy winnipeg-tech-events \
+     --set-env-vars TELEGRAM_BOT_TOKEN=your_token,TELEGRAM_CHAT_ID=your_chat_id
+   ```
+
+### 5. Vercel Serverless
+
+Deploy to Vercel:
+
+1. **Create `vercel.json`**:
+   ```json
+   {
+     "functions": {
+       "lambda/handler.py": {
+         "runtime": "python3.9"
+       }
+     }
+   }
+   ```
+
+2. **Deploy**:
+   ```bash
+   vercel --prod
+   ```
+
+3. **Set Environment Variables** in Vercel dashboard
 
 ## Architecture
 
@@ -104,6 +214,21 @@ A production-grade web application that discovers, aggregates, and shares techno
 
 ## Validation & Testing
 
+### Comprehensive Test Suite
+
+Run the complete test suite:
+```bash
+./test_scheduler.sh
+```
+
+This tests all components including:
+- Go scheduler functionality
+- Python Lambda function
+- GitHub Actions workflow
+- Web interface components
+- Configuration files
+- API endpoints
+
 ### Manual Testing Checklist
 
 #### ✅ Basic Functionality
@@ -111,34 +236,62 @@ A production-grade web application that discovers, aggregates, and shares techno
 - [ ] Events display in grouped format (Today, This Week, etc.)
 - [ ] Filters work correctly (date range, source, search)
 - [ ] Event selection works for Telegram sharing
+- [ ] Manual "Fetch Events Now" button works
+- [ ] Refresh functionality works
 
 #### ✅ Error Handling
 - [ ] Network failure shows warning banner
 - [ ] Fallback to sample data works
 - [ ] Debug console shows detailed logs
 - [ ] "Try Again" button resets state
+- [ ] Individual source failures don't break the app
 
 #### ✅ Telegram Integration
 - [ ] Message preview updates when selecting events
 - [ ] Character count shows and warns at limits
 - [ ] Share via URL opens Telegram with pre-filled message
 - [ ] Bot API works with valid credentials (if configured)
+- [ ] Error alerts are sent on failures
 
 #### ✅ Date Handling
 - [ ] Events are sorted chronologically
 - [ ] "Today" shows only today's events
 - [ ] "This Week" shows current week events
 - [ ] "Next Week" shows upcoming week events
+- [ ] Smart date parsing handles various formats
 
 #### ✅ UI/UX
 - [ ] Responsive design works on mobile
 - [ ] Dark mode adapts to system preference
 - [ ] Loading states show during data fetch
 - [ ] Error banners are dismissible
+- [ ] Manual trigger button shows loading state
+
+#### ✅ Automated Scheduling
+- [ ] GitHub Actions workflow runs on schedule
+- [ ] AWS Lambda function executes properly
+- [ ] Test mode works without posting
+- [ ] Error alerts are sent on failures
+- [ ] Success notifications are sent
+
+### Test Mode
+
+All components support test mode for safe debugging:
+
+```bash
+# Go scheduler in test mode
+TEST_MODE=true ./scheduler
+
+# Python Lambda in test mode
+TEST_MODE=true python3 lambda/handler.py
+
+# GitHub Actions with test mode
+# Set TEST_MODE=true in workflow inputs
+```
 
 ### Automated Testing
 
-Run the test suite:
+Run the Go test suite:
 ```bash
 go test ./...
 ```
@@ -153,6 +306,15 @@ go install github.com/rakyll/hey@latest
 # Run load test
 hey -n 100 -c 10 http://localhost:8080/api/events
 ```
+
+### Deployment Testing
+
+Test each deployment option:
+
+1. **GitHub Actions**: Enable workflow and monitor execution
+2. **AWS Lambda**: Deploy and test with EventBridge trigger
+3. **Google Cloud Functions**: Deploy and test HTTP trigger
+4. **Vercel**: Deploy and test serverless function
 
 ## Troubleshooting
 

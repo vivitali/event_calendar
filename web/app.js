@@ -18,6 +18,11 @@ class EventScraperApp {
     }
 
     setupEventListeners() {
+        // Fetch Events button (manual trigger)
+        document.getElementById('fetchEventsBtn').addEventListener('click', () => {
+            this.manualFetchEvents();
+        });
+
         // Refresh button
         document.getElementById('refreshBtn').addEventListener('click', () => {
             this.refreshEvents();
@@ -189,6 +194,42 @@ class EventScraperApp {
 
     getSampleEvents() {
         return this.sampleEvents || [];
+    }
+
+    async manualFetchEvents() {
+        const fetchBtn = document.getElementById('fetchEventsBtn');
+        const originalText = fetchBtn.innerHTML;
+        
+        try {
+            // Update button state
+            fetchBtn.disabled = true;
+            fetchBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching Events...';
+            
+            this.log('info', 'Manual fetch events triggered by user');
+            this.showAlert('info', 'Fetching events from all sources...', 3000);
+            
+            // Fetch events from all sources
+            const events = await this.fetchAllEvents();
+            this.events = events;
+            this.applyFilters();
+            
+            // Update UI
+            this.showAlert('success', `Successfully fetched ${events.length} events!`, 3000);
+            this.log('success', `Manual fetch completed - ${events.length} events loaded`);
+            
+            // Enable Telegram sharing if events were found
+            if (events.length > 0) {
+                this.showAlert('info', 'Events loaded! You can now select events and share to Telegram.', 5000);
+            }
+            
+        } catch (error) {
+            this.log('error', 'Manual fetch failed', error.message);
+            this.showAlert('error', 'Failed to fetch events. Check debug console for details.');
+        } finally {
+            // Restore button state
+            fetchBtn.disabled = false;
+            fetchBtn.innerHTML = originalText;
+        }
     }
 
     refreshEvents() {
