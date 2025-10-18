@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  winnipeg-tech-events:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - PERIOD_DAYS=30
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.winnipeg-tech-events.rule=Host(`events.yourdomain.com`)"
+      - "traefik.http.routers.winnipeg-tech-events.tls=true"
+      - "traefik.http.routers.winnipeg-tech-events.tls.certresolver=letsencrypt"
+      - "traefik.http.services.winnipeg-tech-events.loadbalancer.server.port=8080"

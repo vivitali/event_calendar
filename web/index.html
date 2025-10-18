@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Winnipeg Tech Events</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-calendar-alt"></i> Winnipeg Tech Events</h1>
+            <div class="header-controls">
+                <button id="refreshBtn" class="btn btn-primary">
+                    <i class="fas fa-sync-alt"></i> Refresh Events
+                </button>
+                <button id="debugToggle" class="btn btn-secondary">
+                    <i class="fas fa-bug"></i> Debug Console
+                </button>
+            </div>
+        </header>
+
+        <!-- Error Banner -->
+        <div id="errorBanner" class="alert alert-error" style="display: none;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="errorMessage"></span>
+            <button id="errorDismiss" class="btn-close">&times;</button>
+        </div>
+
+        <!-- Warning Banner -->
+        <div id="warningBanner" class="alert alert-warning" style="display: none;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="warningMessage"></span>
+            <button id="warningDismiss" class="btn-close">&times;</button>
+        </div>
+
+        <!-- Success Banner -->
+        <div id="successBanner" class="alert alert-success" style="display: none;">
+            <i class="fas fa-check-circle"></i>
+            <span id="successMessage"></span>
+            <button id="successDismiss" class="btn-close">&times;</button>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="filter-section">
+            <div class="filter-group">
+                <label for="dateFilter">Time Range:</label>
+                <select id="dateFilter">
+                    <option value="future">Future Events</option>
+                    <option value="today">Today Only</option>
+                    <option value="week">This Week</option>
+                    <option value="nextweek">Next Week</option>
+                    <option value="all">All Events</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="sourceFilter">Source:</label>
+                <select id="sourceFilter">
+                    <option value="all">All Sources</option>
+                    <option value="meetup">Meetup.com</option>
+                    <option value="eventbrite">Eventbrite</option>
+                    <option value="devevents">Dev.events</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="searchInput">Search:</label>
+                <input type="text" id="searchInput" placeholder="Search events...">
+            </div>
+        </div>
+
+        <!-- Events Display -->
+        <div class="events-container">
+            <div id="loadingSpinner" class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i> Loading events...
+            </div>
+            <div id="eventsList" class="events-list"></div>
+            <div id="noEventsMessage" class="no-events" style="display: none;">
+                <i class="fas fa-calendar-times"></i>
+                <p>No events found matching your criteria.</p>
+            </div>
+        </div>
+
+        <!-- Telegram Sharing Panel -->
+        <div class="telegram-panel">
+            <div class="panel-header">
+                <h3><i class="fas fa-paper-plane"></i> Share to Telegram</h3>
+                <button id="telegramToggle" class="btn btn-secondary">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            </div>
+            <div id="telegramContent" class="panel-content" style="display: none;">
+                <div class="telegram-config">
+                    <div class="config-group">
+                        <label for="botToken">Bot Token (optional):</label>
+                        <input type="password" id="botToken" placeholder="Your Telegram bot token">
+                        <small>Leave empty to use share URL instead</small>
+                    </div>
+                    <div class="config-group">
+                        <label for="chatId">Chat ID (optional):</label>
+                        <input type="text" id="chatId" placeholder="Target chat ID">
+                        <small>Required if using bot token</small>
+                    </div>
+                </div>
+                
+                <div class="message-preview">
+                    <label for="messagePreview">Message Preview:</label>
+                    <textarea id="messagePreview" readonly placeholder="Select events to see preview..."></textarea>
+                    <div class="message-stats">
+                        <span id="charCount">0</span> / 4096 characters
+                        <span id="charWarning" class="char-warning" style="display: none;">⚠️ Approaching limit</span>
+                    </div>
+                </div>
+
+                <div class="telegram-actions">
+                    <button id="selectAllBtn" class="btn btn-secondary">
+                        <i class="fas fa-check-square"></i> Select All
+                    </button>
+                    <button id="clearSelectionBtn" class="btn btn-secondary">
+                        <i class="fas fa-square"></i> Clear Selection
+                    </button>
+                    <button id="sendTelegramBtn" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Send to Telegram
+                    </button>
+                    <button id="shareTelegramBtn" class="btn btn-secondary">
+                        <i class="fas fa-share"></i> Share via URL
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug Console -->
+        <div id="debugConsole" class="debug-console" style="display: none;">
+            <div class="debug-header">
+                <h3><i class="fas fa-terminal"></i> Debug Console</h3>
+                <div class="debug-controls">
+                    <button id="clearLogsBtn" class="btn btn-sm btn-secondary">Clear</button>
+                    <button id="exportLogsBtn" class="btn btn-sm btn-primary">Export Logs</button>
+                </div>
+            </div>
+            <div id="debugLogs" class="debug-logs"></div>
+        </div>
+    </div>
+
+    <!-- Sample Data (hidden) -->
+    <script type="application/json" id="sampleData">
+    {
+        "events": [
+            {
+                "id": "sample-1",
+                "name": "Winnipeg Tech Meetup - AI & Machine Learning",
+                "description": "Join us for an evening discussing the latest trends in AI and machine learning. We'll have presentations from local experts and networking opportunities.",
+                "source": "meetup",
+                "url": "https://example.com/event1",
+                "venue": "Innovation Hub Winnipeg",
+                "group": "Winnipeg Tech Community",
+                "attendeeCount": 45,
+                "price": "Free",
+                "startTime": "2025-01-15T18:00:00-06:00",
+                "endTime": "2025-01-15T20:00:00-06:00",
+                "dateString": "Wednesday, January 15"
+            },
+            {
+                "id": "sample-2",
+                "name": "DevOps Workshop - CI/CD Pipeline",
+                "description": "Hands-on workshop covering continuous integration and deployment best practices using modern tools.",
+                "source": "eventbrite",
+                "url": "https://example.com/event2",
+                "venue": "TechSpace Winnipeg",
+                "group": "Winnipeg Developers",
+                "attendeeCount": 28,
+                "price": "$25",
+                "startTime": "2025-01-18T09:00:00-06:00",
+                "endTime": "2025-01-18T17:00:00-06:00",
+                "dateString": "Saturday, January 18"
+            },
+            {
+                "id": "sample-3",
+                "name": "Startup Pitch Night",
+                "description": "Local startups pitch their ideas to a panel of investors and mentors. Great networking opportunity for entrepreneurs.",
+                "source": "devevents",
+                "url": "https://example.com/event3",
+                "venue": "Exchange District",
+                "group": "Winnipeg Startup Community",
+                "attendeeCount": 120,
+                "price": "Free",
+                "startTime": "2025-01-20T19:00:00-06:00",
+                "endTime": "2025-01-20T21:30:00-06:00",
+                "dateString": "Monday, January 20"
+            }
+        ]
+    }
+    </script>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -9,11 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
-	"github.com/joho/godotenv"
-
 	"event_calendar/pkg/aggregator"
+	"event_calendar/pkg/devevents"
 	"event_calendar/pkg/eventbrite"
+	"event_calendar/pkg/meetup"
 )
 
 // RequestParams defines incoming parameters
@@ -22,15 +21,41 @@ type RequestParams struct {
 	Categories []string `json:"categories"`
 }
 
-// Handler entry-point
-func init() {
-	functions.HTTP("AggregateEvents", aggregateEventsHandler)
+func main() {
+	// Serve static files
+	http.Handle("/", http.FileServer(http.Dir("./web")))
+	
+	// API endpoints
+	http.HandleFunc("/api/events", aggregateEventsHandler)
+	http.HandleFunc("/api/health", healthHandler)
+	
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	
+	log.Printf("Server starting on port %s", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "healthy",
+		"time":   time.Now().Format(time.RFC3339),
+	})
 }
 
 func aggregateEventsHandler(w http.ResponseWriter, r *http.Request) {
-	// Load .env
-	if err := godotenv.Load(); err != nil {
-		log.Println("Could not load .env, assuming env vars are already set.")
+	// Set CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 
 	params, err := parseRequestParams(r)
@@ -39,34 +64,34 @@ func aggregateEventsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Default period from YAML (or use constant if not in config)
-	periodDaysStr := eventbrite.NewClient(os.Getenv("PERIOD_DAYS"))
+	// Default period
+	periodDaysStr := os.Getenv("PERIOD_DAYS")
 	periodDays, err := strconv.Atoi(periodDaysStr)
 	if err != nil || periodDays <= 0 {
-		// If it's invalid (non-numeric or <= 0), use the default
 		periodDays = 30
 	}
 
 	period := time.Duration(periodDays) * 24 * time.Hour
 
-	// Initialize API clients
-	ebClient := eventbrite.NewClient(os.Getenv("EVENTBRITE_API_KEY"))
+	// Initialize scrapers
+	meetupScraper := meetup.NewScraper()
+	eventbriteScraper := eventbrite.NewScraper()
+	devEventsScraper := devevents.NewScraper()
 
-	agg := aggregator.NewAggregator(ebClient)
+	agg := aggregator.NewAggregator(meetupScraper, eventbriteScraper, devEventsScraper)
 
 	// Collect events
 	var allEvents []interface{}
 	for _, category := range params.Categories {
 		events, err := agg.AggregateEvents(params.City, category, period)
 		if err != nil {
-			log.Println("Aggregation error:", err)
+			log.Printf("Aggregation error for category %s: %v", category, err)
 			continue
 		}
 		allEvents = append(allEvents, events)
 	}
 
 	// Response
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(allEvents)
 }
 
@@ -74,12 +99,12 @@ func aggregateEventsHandler(w http.ResponseWriter, r *http.Request) {
 func parseRequestParams(r *http.Request) (*RequestParams, error) {
 	city := r.URL.Query().Get("city")
 	if city == "" {
-		return nil, http.ErrMissingFile
+		city = "Winnipeg" // Default to Winnipeg
 	}
 
 	categoriesParam := r.URL.Query().Get("categories")
 	if categoriesParam == "" {
-		return nil, http.ErrMissingFile
+		categoriesParam = "tech" // Default category
 	}
 
 	categories := strings.Split(categoriesParam, ",")
