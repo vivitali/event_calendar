@@ -42,6 +42,30 @@ type SendMessageResponse struct {
 	} `json:"result,omitempty"`
 }
 
+type SendPollRequest struct {
+	ChatID      string   `json:"chat_id"`
+	Question    string   `json:"question"`
+	Options     []string `json:"options"`
+	IsAnonymous bool     `json:"is_anonymous"`
+	Type        string   `json:"type"`
+	AllowsMultipleAnswers bool `json:"allows_multiple_answers"`
+}
+
+type SendPollResponse struct {
+	OK          bool   `json:"ok"`
+	Description string `json:"description,omitempty"`
+	Result      struct {
+		MessageID int `json:"message_id"`
+		Poll      struct {
+			ID    string `json:"id"`
+			Question string `json:"question"`
+			Options []struct {
+				Text string `json:"text"`
+			} `json:"options"`
+		} `json:"poll"`
+	} `json:"result,omitempty"`
+}
+
 type GetUpdatesResponse struct {
 	OK     bool `json:"ok"`
 	Result []struct {
@@ -322,6 +346,80 @@ func (s *Service) CreateEventVoteKeyboard(eventID string) *InlineKeyboardMarkup 
 			},
 		},
 	}
+}
+
+func (s *Service) SendPoll(chatID, question string, options []string, allowMultiple bool) error {
+	if s.botToken == "" {
+		return fmt.Errorf("bot token not configured")
+	}
+	
+	if chatID == "" {
+		return fmt.Errorf("chat ID not provided")
+	}
+	
+	if question == "" {
+		return fmt.Errorf("question is empty")
+	}
+	
+	if len(options) < 2 {
+		return fmt.Errorf("poll must have at least 2 options")
+	}
+	
+	if len(options) > 10 {
+		return fmt.Errorf("poll can have at most 10 options")
+	}
+	
+	request := SendPollRequest{
+		ChatID:                chatID,
+		Question:              question,
+		Options:               options,
+		IsAnonymous:           false,
+		Type:                  "regular",
+		AllowsMultipleAnswers: allowMultiple,
+	}
+	
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %v", err)
+	}
+	
+	url := s.baseURL + "/sendPoll"
+	resp, err := s.client.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to send HTTP request: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %v", err)
+	}
+	
+	var response SendPollResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+	
+	if !response.OK {
+		return fmt.Errorf("telegram API error: %s", response.Description)
+	}
+	
+	return nil
+}
+
+func (s *Service) SendMonthlyMeetupPoll(chatID string) error {
+	question := "Є бажаючі зустрітись - виберіть день тижня"
+	options := []string{
+		"Понеділок",
+		"Вівторок", 
+		"Середа",
+		"Четвер",
+		"П'ятниця",
+		"Субота",
+		"Неділя",
+	}
+	
+	return s.SendPoll(chatID, question, options, true)
 }
 
 func groupEventsForTelegram(events []map[string]interface{}) map[string][]map[string]interface{} {

@@ -14,12 +14,15 @@ import (
 )
 
 type SchedulerConfig struct {
-	BotToken    string `json:"bot_token"`
-	ChatID      string `json:"chat_id"`
-	TestMode    bool   `json:"test_mode"`
-	City        string `json:"city"`
-	Categories  string `json:"categories"`
-	PeriodDays  int    `json:"period_days"`
+	BotToken         string `json:"bot_token"`
+	ChatID           string `json:"chat_id"`
+	PollBotToken     string `json:"poll_bot_token"`
+	PollChatID       string `json:"poll_chat_id"`
+	TestMode         bool   `json:"test_mode"`
+	City             string `json:"city"`
+	Categories       string `json:"categories"`
+	PeriodDays       int    `json:"period_days"`
+	EnablePoll       bool   `json:"enable_poll"`
 }
 
 type SchedulerResult struct {
@@ -68,6 +71,14 @@ func loadConfig() *SchedulerConfig {
 		config.ChatID = chatID
 	}
 	
+	if pollBotToken := os.Getenv("TELEGRAM_POLL_BOT_TOKEN"); pollBotToken != "" {
+		config.PollBotToken = pollBotToken
+	}
+	
+	if pollChatID := os.Getenv("TELEGRAM_POLL_CHAT_ID"); pollChatID != "" {
+		config.PollChatID = pollChatID
+	}
+	
 	if testMode := os.Getenv("TEST_MODE"); testMode == "true" {
 		config.TestMode = true
 	}
@@ -86,8 +97,17 @@ func loadConfig() *SchedulerConfig {
 		}
 	}
 	
-	log.Printf("📋 Configuration loaded: City=%s, Categories=%s, PeriodDays=%d, TestMode=%t", 
-		config.City, config.Categories, config.PeriodDays, config.TestMode)
+	// Enable poll by default if poll bot token and chat ID are configured
+	if config.PollBotToken != "" && config.PollChatID != "" {
+		config.EnablePoll = true
+	}
+	
+	if enablePoll := os.Getenv("ENABLE_POLL"); enablePoll == "false" {
+		config.EnablePoll = false
+	}
+	
+	log.Printf("📋 Configuration loaded: City=%s, Categories=%s, PeriodDays=%d, TestMode=%t, EnablePoll=%t", 
+		config.City, config.Categories, config.PeriodDays, config.TestMode, config.EnablePoll)
 	
 	return config
 }
@@ -182,6 +202,18 @@ func runScheduler(config *SchedulerConfig) *SchedulerResult {
 	result.Success = true
 	result.MessageSent = true
 	result.Logs = append(result.Logs, "✅ Message sent to Telegram successfully")
+	
+	// Check if we should send monthly poll
+	if config.EnablePoll && config.PollBotToken != "" && config.PollChatID != "" && is20thOfMonth() {
+		log.Println("📊 Sending monthly meetup poll...")
+		pollTelegramService := telegram.NewService(config.PollBotToken)
+		err = pollTelegramService.SendMonthlyMeetupPoll(config.PollChatID)
+		if err != nil {
+			result.Logs = append(result.Logs, fmt.Sprintf("Failed to send monthly poll: %v", err))
+		} else {
+			result.Logs = append(result.Logs, "✅ Monthly meetup poll sent successfully")
+		}
+	}
 	
 	return result
 }
@@ -400,6 +432,11 @@ func getString(m map[string]interface{}, key string) string {
 		return val
 	}
 	return ""
+}
+
+func is20thOfMonth() bool {
+	now := time.Now()
+	return now.Day() == 20
 }
 
 func logResult(result *SchedulerResult) {

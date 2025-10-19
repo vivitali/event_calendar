@@ -1,0 +1,144 @@
+name: Monthly Meetup Poll Scheduler
+
+on:
+  schedule:
+    # Run on the 20th of every month at 9:00 AM CST (2:00 PM UTC)
+    - cron: '0 14 20 * *'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode (no actual posting)'
+        required: false
+        default: false
+        type: boolean
+      force_send:
+        description: 'Force send poll even if not 20th (for testing)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GO_VERSION: '1.25'
+  TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
+
+jobs:
+  send-monthly-poll:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Install dependencies
+      run: go mod download
+      
+    - name: Build poll scheduler
+      run: go build -o poll-scheduler cmd/poll-scheduler/main.go
+      
+    - name: Test connection (if not test mode)
+      if: env.TEST_MODE != 'true'
+      run: |
+        echo "Testing Telegram connection..."
+        ./poll-scheduler || echo "Connection test failed, but continuing..."
+      env:
+        TELEGRAM_POLL_BOT_TOKEN: ${{ secrets.TELEGRAM_POLL_BOT_TOKEN }}
+        TELEGRAM_POLL_CHAT_ID: ${{ secrets.TELEGRAM_POLL_CHAT_ID }}
+        TEST_MODE: 'true'
+        
+    - name: Run monthly poll scheduler
+      run: |
+        echo "📊 Running Monthly Meetup Poll Scheduler..."
+        echo "Configuration:"
+        echo "  Test Mode: ${{ env.TEST_MODE }}"
+        echo "  Force Send: ${{ github.event.inputs.force_send }}"
+        echo "  Current Date: $(date)"
+        echo ""
+        
+        # If force_send is enabled, we'll modify the binary temporarily
+        if [ "${{ github.event.inputs.force_send }}" = "true" ]; then
+          echo "🔧 Force send enabled - modifying date check..."
+          # Create a temporary version that always sends
+          sed 's/func is20thOfMonth() bool {/func is20thOfMonth() bool {\n\t\/\/ Force send for testing\n\treturn true/' cmd/poll-scheduler/main.go > /tmp/poll-scheduler-force.go
+          go build -o poll-scheduler-force /tmp/poll-scheduler-force.go
+          ./poll-scheduler-force
+        else
+          ./poll-scheduler
+        fi
+      env:
+        TELEGRAM_POLL_BOT_TOKEN: ${{ secrets.TELEGRAM_POLL_BOT_TOKEN }}
+        TELEGRAM_POLL_CHAT_ID: ${{ secrets.TELEGRAM_POLL_CHAT_ID }}
+        TEST_MODE: ${{ env.TEST_MODE }}
+        
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: poll-scheduler-logs-${{ github.run_number }}
+        path: |
+          poll-scheduler*
+        retention-days: 30
+        
+    - name: Send failure alert
+      if: failure() && (github.event_name == 'schedule' || github.event.inputs.test_mode != 'true')
+      run: |
+        echo "❌ Poll scheduler failed, sending alert..."
+        curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}",
+            "text": "🚨 *Monthly Poll Alert*\n\nPoll scheduler run failed!\n\n*Run ID:* '${{ github.run_id }}'\n*Workflow:* '${{ github.workflow }}'\n*Time:* '${{ github.event.head_commit.timestamp }}'\n\nCheck GitHub Actions logs for details.",
+            "parse_mode": "Markdown"
+          }' || echo "Failed to send alert"
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        
+    - name: Send success notification
+      if: success() && (github.event_name == 'schedule' || github.event.inputs.test_mode != 'true')
+      run: |
+        echo "✅ Poll scheduler completed successfully!"
+        curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}",
+            "text": "✅ *Monthly Meetup Poll*\n\nSuccessfully sent monthly meetup poll!\n\n*Run ID:* '${{ github.run_id }}'\n*Time:* '${{ github.event.head_commit.timestamp }}'",
+            "parse_mode": "Markdown"
+          }' || echo "Failed to send success notification"
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+  notify-poll-sent:
+    runs-on: ubuntu-latest
+    needs: send-monthly-poll
+    if: success() && (github.event_name == 'schedule' || github.event.inputs.test_mode != 'true')
+    
+    steps:
+    - name: Send poll confirmation to poll chat
+      run: |
+        echo "📊 Sending poll confirmation to poll chat..."
+        curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_POLL_BOT_TOKEN }}/sendMessage" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "chat_id": "${{ secrets.TELEGRAM_POLL_CHAT_ID }}",
+            "text": "📊 *Monthly Meetup Poll*\n\nPoll has been sent successfully!\n\n*Date:* '${{ github.event.head_commit.timestamp }}'\n\nPlease vote for your preferred meeting days! 🗳️",
+            "parse_mode": "Markdown"
+          }' || echo "Failed to send poll confirmation"
+      env:
+        TELEGRAM_POLL_BOT_TOKEN: ${{ secrets.TELEGRAM_POLL_BOT_TOKEN }}
+        TELEGRAM_POLL_CHAT_ID: ${{ secrets.TELEGRAM_POLL_CHAT_ID }}

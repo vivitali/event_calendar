@@ -32,6 +32,7 @@ env:
   CATEGORIES: ${{ github.event.inputs.categories || 'tech' }}
   TEST_MODE: ${{ github.event.inputs.test_mode || 'false' }}
   PERIOD_DAYS: '30'
+  ENABLE_POLL: 'true'
 
 jobs:
   fetch-and-post-events:
@@ -78,16 +79,20 @@ jobs:
         echo "  Categories: ${{ env.CATEGORIES }}"
         echo "  Period Days: ${{ env.PERIOD_DAYS }}"
         echo "  Test Mode: ${{ env.TEST_MODE }}"
+        echo "  Enable Poll: ${{ env.ENABLE_POLL }}"
         echo ""
         
         ./scheduler
       env:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        TELEGRAM_POLL_BOT_TOKEN: ${{ secrets.TELEGRAM_POLL_BOT_TOKEN }}
+        TELEGRAM_POLL_CHAT_ID: ${{ secrets.TELEGRAM_POLL_CHAT_ID }}
         CITY: ${{ env.CITY }}
         CATEGORIES: ${{ env.CATEGORIES }}
         PERIOD_DAYS: ${{ env.PERIOD_DAYS }}
         TEST_MODE: ${{ env.TEST_MODE }}
+        ENABLE_POLL: ${{ env.ENABLE_POLL }}
         
     - name: Upload logs
       if: always()
