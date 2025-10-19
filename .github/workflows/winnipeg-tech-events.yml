@@ -4,15 +4,16 @@ on:
   schedule:
     # Run every Monday at 9:00 AM CST (2:00 PM UTC)
     - cron: '0 14 * * 1'
+    # TESTING: Run every 5 minutes (remove this line after testing)
+    - cron: '*/5 * * * *'
   
   # Allow manual triggering
   workflow_dispatch:
     inputs:
       test_mode:
-        mocked: true
         description: 'Run in test mode (no actual posting)'
         required: false
-        default: 'false'
+        default: false
         type: boolean
       city:
         description: 'City to fetch events for'
@@ -98,7 +99,7 @@ jobs:
         retention-days: 30
         
     - name: Send failure alert
-      if: failure() && env.TEST_MODE != 'true'
+      if: failure() && (github.event_name == 'schedule' || github.event.inputs.test_mode != 'true')
       run: |
         echo "❌ Scheduler failed, sending alert..."
         curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
@@ -117,7 +118,7 @@ jobs:
       uses: actions/github-script@v6
       with:
         script: |
-          const testMode = '${{ env.TEST_MODE }}';
+          const testMode = '${{ github.event.inputs.test_mode }}';
           const result = testMode === 'true' ? '✅ Test mode completed successfully' : '✅ Events posted successfully';
           
           github.rest.issues.createComment({
@@ -130,7 +131,7 @@ jobs:
   notify-success:
     runs-on: ubuntu-latest
     needs: fetch-and-post-events
-    if: success() && env.TEST_MODE != 'true'
+    if: success() && (github.event_name == 'schedule' || github.event.inputs.test_mode != 'true')
     
     steps:
     - name: Send success notification
