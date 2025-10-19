@@ -81,7 +81,7 @@ func (s *Scraper) getSampleEvents() []models.Event {
 		},
 		{
 			ID:          "meetup-webdev-1",
-			Name:        "Web Development Trends 2025",
+			Name:        "Web Development Trends 20lkljljlkjl25",
 			Description: "Exploring the latest web development frameworks, tools, and best practices. Panel discussion with local developers.",
 			City:        "Winnipeg",
 			Category:    "tech",

@@ -196,6 +196,19 @@ class EventScraperApp {
         return this.sampleEvents || [];
     }
 
+    getSourceLabel(source) {
+        switch (source) {
+            case 'meetup':
+                return '`[Meetup]`';
+            case 'eventbrite':
+                return '`[Eventbrite]`';
+            case 'devevents':
+                return '`[Dev.events]`';
+            default:
+                return '`[' + source + ']`';
+        }
+    }
+
     async manualFetchEvents() {
         const fetchBtn = document.getElementById('fetchEventsBtn');
         const originalText = fetchBtn.innerHTML;
@@ -516,17 +529,14 @@ class EventScraperApp {
                 message += `*${period}:*\n`;
                 selectedPeriodEvents.forEach(event => {
                     const startDate = new Date(event.startTime);
-                    const timeStr = startDate.toLocaleTimeString('en-US', { 
-                        hour: 'numeric', 
-                        minute: '2-digit',
-                        hour12: true 
-                    });
+                    const sourceLabel = this.getSourceLabel(event.source);
                     
-                    message += `• ${event.name}\n`;
+                    message += `• ${event.name} ${sourceLabel}\n`;
                     message += `  📅 ${startDate.toLocaleDateString('en-US', { 
+                        weekday: 'long',
                         month: 'short', 
                         day: 'numeric' 
-                    })} at ${timeStr}\n`;
+                    })}\n`;
                     if (event.venue) {
                         message += `  📍 ${event.venue}\n`;
                     }

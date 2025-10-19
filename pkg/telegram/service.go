@@ -190,13 +190,17 @@ func (s *Service) FormatMessage(events []map[string]interface{}) string {
 				startTime := getString(event, "start_time")
 				venue := getString(event, "venue")
 				price := getString(event, "price")
+				source := getString(event, "source")
 				
-				message += fmt.Sprintf("• %s\n", escapeMarkdown(name))
+				// Event title with source label
+				sourceLabel := getSourceLabelForTelegram(source)
+				message += fmt.Sprintf("• %s %s\n", escapeMarkdown(name), sourceLabel)
 				
+				// Format date nicely (without time)
 				if startTime != "" {
 					if t, err := time.Parse(time.RFC3339, startTime); err == nil {
-						timeStr := t.Format("Jan 2 at 3:04 PM")
-						message += fmt.Sprintf("  📅 %s\n", timeStr)
+						dateStr := t.Format("Monday, Jan 2")
+						message += fmt.Sprintf("  📅 %s\n", dateStr)
 					}
 				}
 				
@@ -280,6 +284,19 @@ func getString(m map[string]interface{}, key string) string {
 		return val
 	}
 	return ""
+}
+
+func getSourceLabelForTelegram(source string) string {
+	switch source {
+	case "meetup":
+		return "`[Meetup]`"
+	case "eventbrite":
+		return "`[Eventbrite]`"
+	case "devevents":
+		return "`[Dev.events]`"
+	default:
+		return "`[" + source + "]`"
+	}
 }
 
 func escapeMarkdown(text string) string {

@@ -201,10 +201,15 @@ func generateTelegramMessageFromModels(events []models.Event) string {
 		if len(periodEvents) > 0 {
 			message += fmt.Sprintf("*%s:*\n", period)
 			for _, event := range periodEvents {
-				message += fmt.Sprintf("• %s\n", event.Name)
+				// Event title with source label
+				sourceLabel := getSourceLabel(event.Source)
+				message += fmt.Sprintf("• %s %s\n", event.Name, sourceLabel)
 				
-				timeStr := event.StartTime.Format("Jan 2 at 3:04 PM")
-				message += fmt.Sprintf("  📅 %s\n", timeStr)
+				// Format date nicely
+				if !event.StartTime.IsZero() {
+					dateStr := event.StartTime.Format("Monday, Jan 2")
+					message += fmt.Sprintf("  📅 %s\n", dateStr)
+				}
 				
 				if event.Venue != "" {
 					message += fmt.Sprintf("  📍 %s\n", event.Venue)
@@ -226,6 +231,19 @@ func generateTelegramMessageFromModels(events []models.Event) string {
 	message += "\n_Shared via Winnipeg Tech Events Tracker_"
 	
 	return message
+}
+
+func getSourceLabel(source string) string {
+	switch source {
+	case "meetup":
+		return "`[Meetup]`"
+	case "eventbrite":
+		return "`[Eventbrite]`"
+	case "devevents":
+		return "`[Dev.events]`"
+	default:
+		return "`[" + source + "]`"
+	}
 }
 
 func generateTelegramMessage(events []interface{}) string {
