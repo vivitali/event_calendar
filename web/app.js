@@ -531,19 +531,19 @@ class EventScraperApp {
                     const startDate = new Date(event.startTime);
                     const sourceLabel = this.getSourceLabel(event.source);
                     
-                    message += `• ${event.name} ${sourceLabel}\n`;
-                    message += `  📅 ${startDate.toLocaleDateString('en-US', { 
+                    message += `🎯 **${event.name}** ${sourceLabel}\n`;
+                    message += `📅 __${startDate.toLocaleDateString('en-US', { 
                         weekday: 'long',
                         month: 'short', 
                         day: 'numeric' 
-                    })}\n`;
+                    })}__\n`;
                     if (event.venue) {
-                        message += `  📍 ${event.venue}\n`;
+                        message += `📍 ${event.venue}\n`;
                     }
                     if (event.price && event.price !== 'Free') {
-                        message += `  💰 ${event.price}\n`;
+                        message += `💰 ${event.price}\n`;
                     }
-                    message += `  🔗 [View Event](${event.url})\n\n`;
+                    message += `🔗 [View Event](${event.url})\n\n`;
                 });
             }
         }

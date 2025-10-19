@@ -17,10 +17,21 @@ type Service struct {
 }
 
 type SendMessageRequest struct {
-	ChatID                string `json:"chat_id"`
-	Text                  string `json:"text"`
-	ParseMode             string `json:"parse_mode,omitempty"`
-	DisableWebPagePreview bool   `json:"disable_web_page_preview,omitempty"`
+	ChatID                string      `json:"chat_id"`
+	Text                  string      `json:"text"`
+	ParseMode             string      `json:"parse_mode,omitempty"`
+	DisableWebPagePreview bool        `json:"disable_web_page_preview,omitempty"`
+	ReplyMarkup           interface{} `json:"reply_markup,omitempty"`
+}
+
+type InlineKeyboardButton struct {
+	Text         string `json:"text"`
+	CallbackData string `json:"callback_data,omitempty"`
+	URL          string `json:"url,omitempty"`
+}
+
+type InlineKeyboardMarkup struct {
+	InlineKeyboard [][]InlineKeyboardButton `json:"inline_keyboard"`
 }
 
 type SendMessageResponse struct {
@@ -134,6 +145,64 @@ func (s *Service) TestConnection() error {
 	return nil
 }
 
+func (s *Service) SendMessageWithKeyboard(chatID, message string, keyboard *InlineKeyboardMarkup) error {
+	if s.botToken == "" {
+		return fmt.Errorf("bot token not configured")
+	}
+	
+	if chatID == "" {
+		return fmt.Errorf("chat ID not provided")
+	}
+	
+	if message == "" {
+		return fmt.Errorf("message is empty")
+	}
+	
+	// Check message length
+	if len(message) > 4096 {
+		return fmt.Errorf("message too long (%d characters, max 4096)", len(message))
+	}
+	
+	request := SendMessageRequest{
+		ChatID:                chatID,
+		Text:                  message,
+		ParseMode:             "Markdown",
+		DisableWebPagePreview: true,
+	}
+	
+	if keyboard != nil {
+		request.ReplyMarkup = keyboard
+	}
+	
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %v", err)
+	}
+	
+	url := s.baseURL + "/sendMessage"
+	resp, err := s.client.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to send HTTP request: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %v", err)
+	}
+	
+	var response SendMessageResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return fmt.Errorf("failed to parse response: %v", err)
+	}
+	
+	if !response.OK {
+		return fmt.Errorf("telegram API error: %s", response.Description)
+	}
+	
+	return nil
+}
+
 func (s *Service) GetChatInfo(chatID string) (map[string]interface{}, error) {
 	if s.botToken == "" {
 		return nil, fmt.Errorf("bot token not configured")
@@ -170,7 +239,7 @@ func (s *Service) GetChatInfo(chatID string) (map[string]interface{}, error) {
 
 func (s *Service) FormatMessage(events []map[string]interface{}) string {
 	if len(events) == 0 {
-		return "📅 No upcoming events found for Winnipeg tech community."
+		return "📅 *No upcoming events found* for Winnipeg tech community."
 	}
 	
 	now := time.Now()
@@ -192,28 +261,28 @@ func (s *Service) FormatMessage(events []map[string]interface{}) string {
 				price := getString(event, "price")
 				source := getString(event, "source")
 				
-				// Event title with source label
+				// Event title with source label and better formatting
 				sourceLabel := getSourceLabelForTelegram(source)
-				message += fmt.Sprintf("• %s %s\n", escapeMarkdown(name), sourceLabel)
+				message += fmt.Sprintf("🎯 **%s** %s\n", escapeMarkdown(name), sourceLabel)
 				
 				// Format date nicely (without time)
 				if startTime != "" {
 					if t, err := time.Parse(time.RFC3339, startTime); err == nil {
 						dateStr := t.Format("Monday, Jan 2")
-						message += fmt.Sprintf("  📅 %s\n", dateStr)
+						message += fmt.Sprintf("📅 __%s__\n", dateStr)
 					}
 				}
 				
 				if venue != "" {
-					message += fmt.Sprintf("  📍 %s\n", escapeMarkdown(venue))
+					message += fmt.Sprintf("📍 %s\n", escapeMarkdown(venue))
 				}
 				
 				if price != "" && price != "Free" {
-					message += fmt.Sprintf("  💰 %s\n", escapeMarkdown(price))
+					message += fmt.Sprintf("💰 %s\n", escapeMarkdown(price))
 				}
 				
 				if url != "" {
-					message += fmt.Sprintf("  🔗 [View Event](%s)\n", url)
+					message += fmt.Sprintf("🔗 [View Event](%s)\n", url)
 				}
 				
 				message += "\n"
@@ -224,6 +293,35 @@ func (s *Service) FormatMessage(events []map[string]interface{}) string {
 	message += "\n_Shared via Winnipeg Tech Events Tracker_"
 	
 	return message
+}
+
+func (s *Service) CreateVoteKeyboard() *InlineKeyboardMarkup {
+	return &InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "👍 I'm Going", CallbackData: "vote_going"},
+				{Text: "🤔 Maybe", CallbackData: "vote_maybe"},
+			},
+			{
+				{Text: "❌ Not Going", CallbackData: "vote_not_going"},
+				{Text: "📊 View Results", CallbackData: "vote_results"},
+			},
+		},
+	}
+}
+
+func (s *Service) CreateEventVoteKeyboard(eventID string) *InlineKeyboardMarkup {
+	return &InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{
+			{
+				{Text: "👍 Going", CallbackData: fmt.Sprintf("event_%s_going", eventID)},
+				{Text: "🤔 Maybe", CallbackData: fmt.Sprintf("event_%s_maybe", eventID)},
+			},
+			{
+				{Text: "❌ Not Going", CallbackData: fmt.Sprintf("event_%s_not_going", eventID)},
+			},
+		},
+	}
 }
 
 func groupEventsForTelegram(events []map[string]interface{}) map[string][]map[string]interface{} {

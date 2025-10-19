@@ -160,7 +160,11 @@ func runScheduler(config *SchedulerConfig) *SchedulerResult {
 	
 	log.Println("📤 Sending message to Telegram...")
 	telegramService := telegram.NewService(config.BotToken)
-	err = telegramService.SendMessage(config.ChatID, message)
+	
+	// Create vote keyboard for the overall message
+	keyboard := telegramService.CreateVoteKeyboard()
+	
+	err = telegramService.SendMessageWithKeyboard(config.ChatID, message, keyboard)
 	
 	if err != nil {
 		result.Error = fmt.Sprintf("Failed to send Telegram message: %v", err)
