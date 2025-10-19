@@ -2,11 +2,14 @@ package meetup
 
 import (
 	"event_calendar/internal/models"
+	"fmt"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -17,29 +20,297 @@ type Scraper struct {
 
 func NewScraper() *Scraper {
 	return &Scraper{
-		client: resty.New().SetTimeout(30 * time.Second),
+		client: resty.New().
+			SetTimeout(30 * time.Second).
+			SetHeader("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36").
+			SetHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8").
+			SetHeader("Accept-Language", "en-US,en;q=0.5").
+			SetHeader("Accept-Encoding", "gzip, deflate").
+			SetHeader("Connection", "keep-alive").
+			SetHeader("Upgrade-Insecure-Requests", "1"),
 		baseURL: "https://www.meetup.com/find/?location=ca--mb--Winnipeg&source=EVENTS&categoryId=546",
 	}
 }
 
 func (s *Scraper) GetEvents(city, category string, period time.Duration) ([]models.Event, error) {
-	events, err := s.fetchEventsFromMeetup()
+	log.Printf("Fetching Meetup events for city: %s, category: %s, period: %v", city, category, period)
+	
+	events, err := s.fetchEventsFromMeetup(city, category, period)
 	if err != nil {
+		log.Printf("Failed to fetch events from Meetup: %v", err)
 		// Return sample data if scraping fails
 		return s.getSampleEvents(), nil
 	}
+	
+	log.Printf("Successfully fetched %d events from Meetup", len(events))
 	return events, nil
 }
 
-func (s *Scraper) fetchEventsFromMeetup() ([]models.Event, error) {
-	// Note: In a real implementation, you would need to handle CORS and potentially use a proxy
-	// For now, we'll return sample data that matches the expected format
+func (s *Scraper) fetchEventsFromMeetup(city, category string, period time.Duration) ([]models.Event, error) {
+	// Build the search URL based on parameters
+	searchURL := s.buildSearchURL(city, category)
 	
-	// Simulate some network delay
-	time.Sleep(1 * time.Second)
+	// Fetch the page
+	resp, err := s.client.R().Get(searchURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Meetup page: %w", err)
+	}
 	
-	// Return sample events that match the Meetup format
-	return s.getSampleEvents(), nil
+	if resp.StatusCode() != 200 {
+		return nil, fmt.Errorf("received non-200 status code: %d", resp.StatusCode())
+	}
+	
+	// Parse the HTML
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(resp.String()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse HTML: %w", err)
+	}
+	
+	// Debug: Log page title and some content
+	title := doc.Find("title").Text()
+	log.Printf("Page title: %s", title)
+	
+	// Debug: Check if we got a valid page
+	if strings.Contains(strings.ToLower(title), "meetup") {
+		log.Printf("Successfully loaded Meetup page")
+	} else {
+		log.Printf("Warning: Page doesn't appear to be a Meetup page")
+	}
+	
+	// Extract events from the page
+	events := s.extractEventsFromHTML(doc, period)
+	
+	return events, nil
+}
+
+// buildSearchURL constructs the Meetup search URL based on city and category
+func (s *Scraper) buildSearchURL(city, category string) string {
+	// Default to Winnipeg if no city specified
+	if city == "" {
+		city = "Winnipeg"
+	}
+	
+	// Map categories to Meetup category IDs
+	categoryMap := map[string]string{
+		"tech":     "546", // Technology
+		"business": "2",   // Business & Professional
+		"social":   "1",   // Social
+		"arts":     "3",   // Arts & Culture
+		"health":   "4",   // Health & Wellness
+		"education": "5",  // Education
+		"sports":   "6",   // Sports & Recreation
+	}
+	
+	categoryID := categoryMap[strings.ToLower(category)]
+	if categoryID == "" {
+		categoryID = "546" // Default to Technology
+	}
+	
+	// Format city for URL (basic implementation)
+	cityFormatted := strings.ReplaceAll(strings.ToLower(city), " ", "-")
+	
+	return fmt.Sprintf("https://www.meetup.com/find/?location=ca--mb--%s&source=EVENTS&categoryId=%s", 
+		cityFormatted, categoryID)
+}
+
+// extractEventsFromHTML parses the HTML document and extracts event information
+func (s *Scraper) extractEventsFromHTML(doc *goquery.Document, period time.Duration) []models.Event {
+	var events []models.Event
+	
+	// Debug: Count potential event elements
+	eventCardCount := doc.Find("[data-testid='event-card'], .eventCard, .event-card, [class*='event']").Length()
+	eventLinkCount := doc.Find("a[href*='/events/']").Length()
+	log.Printf("Found %d potential event cards and %d event links", eventCardCount, eventLinkCount)
+	
+	// Look for event cards in the search results with multiple selector strategies
+	selectors := []string{
+		"[data-testid='event-card']",
+		".eventCard",
+		".event-card", 
+		"[class*='event']",
+		".event",
+		"[data-event-id]",
+		".event-item",
+		".eventItem",
+	}
+	
+	for _, selector := range selectors {
+		doc.Find(selector).Each(func(i int, sel *goquery.Selection) {
+			event := s.parseEventCard(sel)
+			if event != nil && s.isEventInPeriod(*event, period) {
+				events = append(events, *event)
+			}
+		})
+		
+		if len(events) > 0 {
+			log.Printf("Found %d events using selector: %s", len(events), selector)
+			break
+		}
+	}
+	
+	// If no events found with the above selectors, try alternative selectors
+	if len(events) == 0 {
+		log.Printf("No events found with card selectors, trying link-based extraction")
+		doc.Find("a[href*='/events/']").Each(func(i int, sel *goquery.Selection) {
+			event := s.parseEventLink(sel)
+			if event != nil && s.isEventInPeriod(*event, period) {
+				events = append(events, *event)
+			}
+		})
+		log.Printf("Found %d events using link-based extraction", len(events))
+	}
+	
+	// If still no events, try to find any links that might be events
+	if len(events) == 0 {
+		log.Printf("No events found with standard selectors, trying broader search")
+		doc.Find("a").Each(func(i int, sel *goquery.Selection) {
+			href, exists := sel.Attr("href")
+			if exists && (strings.Contains(href, "/events/") || strings.Contains(href, "meetup.com")) {
+				event := s.parseEventLink(sel)
+				if event != nil && s.isEventInPeriod(*event, period) {
+					events = append(events, *event)
+				}
+			}
+		})
+		log.Printf("Found %d events using broader search", len(events))
+	}
+	
+	return events
+}
+
+// parseEventCard extracts event information from a card element
+func (s *Scraper) parseEventCard(sel *goquery.Selection) *models.Event {
+	event := &models.Event{
+		Source: "meetup",
+	}
+	
+	// Extract event name
+	name := sel.Find("h3, .event-title, [class*='title'], [class*='name']").First().Text()
+	if name == "" {
+		name = sel.Find("a").First().Text()
+	}
+	event.Name = strings.TrimSpace(name)
+	
+	// Extract event URL
+	href, exists := sel.Find("a").First().Attr("href")
+	if exists {
+		if strings.HasPrefix(href, "/") {
+			event.URL = "https://www.meetup.com" + href
+		} else {
+			event.URL = href
+		}
+	}
+	
+	// Extract event ID from URL
+	if event.URL != "" {
+		event.ID = s.extractEventIDFromURL(event.URL)
+	}
+	
+	// Extract description
+	description := sel.Find(".event-description, [class*='description'], p").First().Text()
+	event.Description = strings.TrimSpace(description)
+	
+	// Extract date and time
+	dateTime := sel.Find(".event-date, [class*='date'], [class*='time']").First().Text()
+	if dateTime != "" {
+		event.DateString = strings.TrimSpace(dateTime)
+		event.StartTime = parseMeetupDate(dateTime)
+		if !event.StartTime.IsZero() {
+			event.EndTime = event.StartTime.Add(2 * time.Hour) // Default 2-hour duration
+		}
+	}
+	
+	// Extract venue
+	venue := sel.Find(".event-venue, [class*='venue'], [class*='location']").First().Text()
+	event.Venue = strings.TrimSpace(venue)
+	
+	// Extract group name
+	group := sel.Find(".event-group, [class*='group']").First().Text()
+	event.Group = strings.TrimSpace(group)
+	
+	// Extract attendee count
+	attendeeText := sel.Find("[class*='attendee'], [class*='member']").First().Text()
+	event.AttendeeCount = extractAttendeeCount(attendeeText)
+	
+	// Set default values
+	if event.City == "" {
+		event.City = "Winnipeg"
+	}
+	if event.Category == "" {
+		event.Category = "tech"
+	}
+	
+	// Only return event if we have essential information
+	if event.Name != "" && event.URL != "" {
+		return event
+	}
+	
+	return nil
+}
+
+// parseEventLink extracts event information from a link element
+func (s *Scraper) parseEventLink(sel *goquery.Selection) *models.Event {
+	event := &models.Event{
+		Source: "meetup",
+	}
+	
+	// Extract URL
+	href, exists := sel.Attr("href")
+	if !exists {
+		return nil
+	}
+	
+	if strings.HasPrefix(href, "/") {
+		event.URL = "https://www.meetup.com" + href
+	} else {
+		event.URL = href
+	}
+	
+	// Extract event ID from URL
+	event.ID = s.extractEventIDFromURL(event.URL)
+	
+	// Extract name from link text
+	event.Name = strings.TrimSpace(sel.Text())
+	
+	// Set default values
+	event.City = "Winnipeg"
+	event.Category = "tech"
+	event.StartTime = time.Now().AddDate(0, 0, 7) // Default to next week
+	event.EndTime = event.StartTime.Add(2 * time.Hour)
+	
+	// Only return event if we have essential information
+	if event.Name != "" && event.URL != "" {
+		return event
+	}
+	
+	return nil
+}
+
+// extractEventIDFromURL extracts a unique ID from the event URL
+func (s *Scraper) extractEventIDFromURL(url string) string {
+	// Extract event ID from URL like /events/123456789/
+	re := regexp.MustCompile(`/events/(\d+)/?`)
+	matches := re.FindStringSubmatch(url)
+	if len(matches) > 1 {
+		return "meetup-" + matches[1]
+	}
+	
+	// Fallback: use a hash of the URL
+	return "meetup-" + fmt.Sprintf("%x", len(url))
+}
+
+// isEventInPeriod checks if an event falls within the specified time period
+func (s *Scraper) isEventInPeriod(event models.Event, period time.Duration) bool {
+	now := time.Now()
+	futureLimit := now.Add(period)
+	
+	// If no start time, assume it's in the future
+	if event.StartTime.IsZero() {
+		return true
+	}
+	
+	// Check if event is in the future and within the period
+	return event.StartTime.After(now) && event.StartTime.Before(futureLimit)
 }
 
 func (s *Scraper) getSampleEvents() []models.Event {

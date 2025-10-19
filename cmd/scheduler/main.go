@@ -8,10 +8,8 @@ import (
 	"time"
 
 	"event_calendar/internal/models"
-	"event_calendar/pkg/aggregator"
 	"event_calendar/pkg/devevents"
-	"event_calendar/pkg/eventbrite"
-	"event_calendar/pkg/meetup"
+	"event_calendar/pkg/scraping"
 	"event_calendar/pkg/telegram"
 )
 
@@ -100,23 +98,32 @@ func runScheduler(config *SchedulerConfig) *SchedulerResult {
 		Logs:      []string{},
 	}
 	
-	// Initialize scrapers
+	// Initialize scraping service
 	log.Println("🔧 Initializing event scrapers...")
-	meetupScraper := meetup.NewScraper()
-	eventbriteScraper := eventbrite.NewScraper()
-	devEventsScraper := devevents.NewScraper()
+	factory := scraping.NewScrapingServiceFactory()
+	scrapingService := factory.CreateDefaultService()
 	
-	agg := aggregator.NewAggregator(meetupScraper, eventbriteScraper, devEventsScraper)
+	// Also include devevents scraper for backward compatibility
+	devEventsScraper := devevents.NewScraper()
 	
 	// Fetch events
 	log.Println("📡 Fetching events from all sources...")
 	period := time.Duration(config.PeriodDays) * 24 * time.Hour
-	events, err := agg.AggregateEvents(config.City, config.Categories, period)
 	
+	// Use the new scraping service
+	events, err := scrapingService.ScrapeEvents(config.City, config.Categories, period)
 	if err != nil {
-		result.Error = fmt.Sprintf("Failed to aggregate events: %v", err)
+		result.Error = fmt.Sprintf("Failed to scrape events: %v", err)
 		result.Logs = append(result.Logs, result.Error)
 		return result
+	}
+	
+	// Also fetch from devevents
+	devEvents, err := devEventsScraper.GetEvents(config.City, config.Categories, period)
+	if err != nil {
+		log.Printf("DevEvents scraping error: %v", err)
+	} else {
+		events = append(events, devEvents...)
 	}
 	
 	result.EventsCount = len(events)
