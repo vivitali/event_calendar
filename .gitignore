@@ -104,3 +104,8 @@ node_modules/
 # Temporary files
 tmp/
 temp/
+
+# AWS Lambda build artifacts
+bootstrap
+lambda.zip
+deploy/lambda.zip
