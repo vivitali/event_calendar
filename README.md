@@ -1,469 +1,147 @@
 # Winnipeg Tech Events Scraper & Telegram Sharing Web App
 
-A production-grade web application that discovers, aggregates, and shares technology-related events happening in Winnipeg, Manitoba. The application reliably fetches events from multiple sources, handles failures gracefully, and enables seamless sharing of event digests to Telegram groups.
+Discovers, aggregates, and shares technology events happening in Winnipeg, Manitoba. Scrapes from multiple sources, posts weekly digests to Telegram, and runs a monthly meetup-day poll.
 
 ## Features
 
-### 🔍 Multi-Source Event Aggregation
-- **Meetup.com**: Scrapes tech events from Winnipeg area
-- **Eventbrite**: Fetches tech events with smart datetime parsing
-- **Dev.events**: Discovers developer events in Winnipeg/Manitoba
-- **Smart Date Handling**: Intelligently parses various date formats including day names
+### Multi-Source Event Aggregation
+- **Meetup.com** — tech events from Winnipeg area
+- **Eventbrite** — tech events with smart datetime parsing
+- **Dev.events** — developer events in Winnipeg/Manitoba
 
-### 🎯 Dual Trigger System
-- **Manual Trigger**: Browser-based "Fetch Events Now" button for instant execution
-- **Automated Scheduling**: GitHub Actions, AWS Lambda, and serverless options
-- **Test Mode**: Debug without posting for safe testing
-- **Flexible Deployment**: Choose your preferred automation platform
+### Telegram Integration
+- Weekly events digest posted automatically
+- Monthly meetup day-of-week poll on the 20th
+- Optional second bot for the poll (falls back to main bot if not configured)
 
-### 🛡️ Robust Error Handling
-- **Automatic Fallback**: Switches to sample data if scraping fails
-- **Graceful Degradation**: Individual source failures don't break the app
-- **Real-time Debug Console**: Comprehensive logging and diagnostics
-- **UI Error Alerts**: Clear user notifications for all error states
-- **Alert System**: Telegram notifications for failures and successes
+### Modern Web UI (local)
+- Responsive design with dark mode
+- Filter by date range, source, search
+- Grouping by Today / This Week / Next Week / Later
 
-### 📱 Telegram Integration
-- **Bot API**: Direct messaging to configured Telegram groups
-- **Share URLs**: Pre-filled messages for manual sharing
-- **Character Limits**: Smart warnings for message length
-- **Message Preview**: Real-time preview of formatted messages
-- **Error Alerts**: Automatic notifications for system failures
-
-### 🎨 Modern Web UI
-- **Responsive Design**: Works on desktop and mobile
-- **Dark Mode Support**: Automatic theme detection
-- **Smart Filtering**: By date range, source, and search terms
-- **Event Grouping**: Organizes events by "Today", "This Week", etc.
-- **Manual Controls**: Instant fetch and refresh buttons
+### Scheduling
+- AWS Lambda + EventBridge runs the jobs on schedule
+- No GitHub Actions (avoids the 60-day-inactivity workflow timeout)
 
 ## Quick Start
 
 ### Prerequisites
-- Go 1.24.1 or later
-- Modern web browser with JavaScript enabled
+- Go 1.24+
+- AWS CLI v2 (for deployment) configured via `aws login` or `aws configure sso`
+- Telegram bot token + chat ID
 
-### Installation
+### Run locally
 
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd event_calendar
-   ```
+```bash
+go mod tidy
 
-2. **Install dependencies**:
-   ```bash
-   go mod tidy
-   ```
+# Web UI on http://localhost:8080
+go run ./cmd/server
 
-3. **Run the application**:
-   ```bash
-   go run cmd/main.go
-   ```
+# Trigger an events digest manually (test mode, no Telegram send):
+TEST_MODE=true \
+TELEGRAM_BOT_TOKEN=xxx TELEGRAM_CHAT_ID=yyy \
+go run ./cmd/cli -action=events
 
-4. **Open your browser**:
-   Navigate to `http://localhost:8080`
+# Trigger the monthly poll manually:
+TEST_MODE=true \
+TELEGRAM_POLL_BOT_TOKEN=xxx TELEGRAM_POLL_CHAT_ID=yyy \
+go run ./cmd/cli -action=poll
+```
+
+### Deploy to AWS Lambda
+
+The Lambda is invoked on a schedule by AWS EventBridge — no GitHub Actions, no
+60-day inactivity timeout. Two schedules ship out of the box:
+
+- `winnipeg-events-weekly` — Mondays at 14:00 UTC (9 AM CST)
+- `winnipeg-poll-monthly` — 20th of each month at 14:00 UTC
+
+```bash
+# 1. Configure AWS credentials once
+aws login                      # or: aws configure sso
+
+# 2. Put your secrets in deploy/.env (file is gitignored)
+cat > deploy/.env <<'EOF'
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...
+# Optional: separate bot for the monthly poll
+TELEGRAM_POLL_BOT_TOKEN=...
+TELEGRAM_POLL_CHAT_ID=...
+EOF
+
+# 3. Deploy
+./deploy/deploy.sh
+
+# 4. Smoke test
+aws lambda invoke --function-name winnipeg-tech-events \
+    --payload '{"action":"events"}' \
+    --cli-binary-format raw-in-base64-out out.json && cat out.json
+
+# 5. Tail logs
+aws logs tail /aws/lambda/winnipeg-tech-events --follow
+```
 
 ## Configuration
 
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port | `8080` |
-| `PERIOD_DAYS` | Event search period in days | `30` |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token for automated posting | - |
-| `TELEGRAM_CHAT_ID` | Telegram chat ID for automated posting | - |
-| `TEST_MODE` | Run in test mode (no actual posting) | `false` |
-| `CITY` | City to fetch events for | `Winnipeg` |
-| `CATEGORIES` | Event categories to fetch | `tech` |
+| Env var | Default | Purpose |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | — | Bot that posts the events digest |
+| `TELEGRAM_CHAT_ID` | — | Chat that receives the events digest |
+| `TELEGRAM_POLL_BOT_TOKEN` | falls back to `TELEGRAM_BOT_TOKEN` | Bot that posts the monthly poll |
+| `TELEGRAM_POLL_CHAT_ID` | falls back to `TELEGRAM_CHAT_ID` | Chat that receives the monthly poll |
+| `CITY` | `Winnipeg` | City passed to scrapers |
+| `CATEGORIES` | `tech` | Category passed to scrapers |
+| `PERIOD_DAYS` | `30` | How many days ahead to scrape |
+| `TEST_MODE` | `false` | When `true`, format the message but don't send |
+| `PORT` | `8080` | Web UI server port (local only) |
 
 ### Telegram Bot Setup
 
-1. **Create a Telegram Bot**:
-   - Message [@BotFather](https://t.me/botfather) on Telegram
-   - Create a new bot with `/newbot`
-   - Save the bot token
-
-2. **Get Chat ID**:
-   - Add your bot to a group
-   - Send a message in the group
-   - Visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
-   - Find the chat ID in the response
-
-3. **Configure**:
-   - **Manual Use**: Enter bot token and chat ID in the web UI Telegram panel
-   - **Automated Use**: Set environment variables for scheduled execution
-
-## Deployment Options
-
-### 1. Manual Trigger (Web Interface)
-
-The web interface provides instant manual control:
-
-- **Fetch Events Now**: Click to immediately fetch and display events
-- **Telegram Sharing**: Select events and share via Bot API or URL
-- **Debug Console**: View real-time logs and diagnostics
-- **Test Mode**: Toggle test mode for safe debugging
-
-### 2. GitHub Actions (Recommended)
-
-Automated scheduling with GitHub Actions:
-
-1. **Set Repository Secrets**:
-   ```
-   TELEGRAM_BOT_TOKEN=your_bot_token
-   TELEGRAM_CHAT_ID=your_chat_id
-   ```
-
-2. **Enable Workflow**:
-   - The workflow runs every Monday at 9 AM CST
-   - Manual triggers available via GitHub UI
-   - Test mode support for safe testing
-
-3. **Monitor Execution**:
-   - View logs in GitHub Actions tab
-   - Receive success/failure notifications
-   - Automatic error alerts via Telegram
-
-### 3. AWS Lambda
-
-Serverless execution with AWS Lambda:
-
-1. **Deploy Function**:
-   ```bash
-   cd lambda
-   ./deploy.sh
-   ```
-
-2. **Configure Environment Variables**:
-   ```bash
-   aws lambda update-function-configuration \
-     --function-name winnipeg-tech-events \
-     --environment Variables='{
-       "TELEGRAM_BOT_TOKEN":"your_token",
-       "TELEGRAM_CHAT_ID":"your_chat_id"
-     }'
-   ```
-
-3. **Schedule Execution**:
-   - EventBridge rule automatically created
-   - Runs every Monday at 9 AM CST
-   - Manual triggers via AWS Console
-
-### 4. Google Cloud Functions
-
-Deploy to Google Cloud Functions:
-
-1. **Create Function**:
-   ```bash
-   gcloud functions deploy winnipeg-tech-events \
-     --runtime python311 \
-     --trigger-http \
-     --entry-point lambda_handler \
-     --source lambda/
-   ```
-
-2. **Set Environment Variables**:
-   ```bash
-   gcloud functions deploy winnipeg-tech-events \
-     --set-env-vars TELEGRAM_BOT_TOKEN=your_token,TELEGRAM_CHAT_ID=your_chat_id
-   ```
-
-### 5. Vercel Serverless
-
-Deploy to Vercel:
-
-1. **Create `vercel.json`**:
-   ```json
-   {
-     "functions": {
-       "lambda/handler.py": {
-         "runtime": "python3.9"
-       }
-     }
-   }
-   ```
-
-2. **Deploy**:
-   ```bash
-   vercel --prod
-   ```
-
-3. **Set Environment Variables** in Vercel dashboard
+1. Message [@BotFather](https://t.me/botfather) → `/newbot` → save the token.
+2. Add the bot to your group. Send any message in the group.
+3. Visit `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy the chat ID.
 
 ## Architecture
 
-### Backend (Go)
-- **Main Server**: `cmd/main.go` - HTTP server and API endpoints
-- **Models**: `internal/models/event.go` - Event data structure
-- **Scrapers**: `pkg/*/scraper.go` - Source-specific event scrapers
-- **Aggregator**: `pkg/aggregator/` - Event collection and processing
-
-### Frontend (JavaScript)
-- **Web UI**: `web/index.html` - Main application interface
-- **Styling**: `web/styles.css` - Modern, responsive CSS
-- **Logic**: `web/app.js` - Client-side application logic
-
-### Data Flow
-1. **Frontend** requests events from `/api/events`
-2. **Backend** aggregates events from multiple scrapers
-3. **Scrapers** fetch and parse events from external sources
-4. **Aggregator** removes duplicates and sorts by date
-5. **Frontend** displays events with filtering and Telegram sharing
-
-## Validation & Testing
-
-### Comprehensive Test Suite
-
-Run the complete test suite:
-```bash
-./test_scheduler.sh
+```
+EventBridge Scheduler (weekly Mon 14:00 UTC) ─┐
+                                              ├──→ Lambda (Go, provided.al2023)
+EventBridge Scheduler (monthly 20th 14:00 UTC)┘         │
+                                                        ├──→ scrape Meetup/Eventbrite/Dev.events
+                                                        └──→ Telegram Bot API (digest or poll)
 ```
 
-This tests all components including:
-- Go scheduler functionality
-- Python Lambda function
-- GitHub Actions workflow
-- Web interface components
-- Configuration files
-- API endpoints
+### Code layout
 
-### Manual Testing Checklist
+```
+cmd/
+  lambda/       # AWS Lambda entry point
+  cli/          # Local CLI runner
+  server/       # Local web UI server
+internal/
+  config/       # Env loading
+  digest/       # Telegram message formatting
+  jobs/         # Reusable events-digest + monthly-poll jobs
+  timeutil/     # Date grouping helpers
+  models/       # Event struct
+pkg/
+  scraping/     # Multi-source scraping service
+  meetup/       eventbrite/   devevents/   # individual scrapers
+  telegram/     # Telegram Bot API client
+  aggregator/   # Result merging & deduping
+deploy/
+  deploy.sh     # Idempotent AWS deploy
+web/            # Local web UI assets
+```
 
-#### ✅ Basic Functionality
-- [ ] Application loads without errors
-- [ ] Events display in grouped format (Today, This Week, etc.)
-- [ ] Filters work correctly (date range, source, search)
-- [ ] Event selection works for Telegram sharing
-- [ ] Manual "Fetch Events Now" button works
-- [ ] Refresh functionality works
-
-#### ✅ Error Handling
-- [ ] Network failure shows warning banner
-- [ ] Fallback to sample data works
-- [ ] Debug console shows detailed logs
-- [ ] "Try Again" button resets state
-- [ ] Individual source failures don't break the app
-
-#### ✅ Telegram Integration
-- [ ] Message preview updates when selecting events
-- [ ] Character count shows and warns at limits
-- [ ] Share via URL opens Telegram with pre-filled message
-- [ ] Bot API works with valid credentials (if configured)
-- [ ] Error alerts are sent on failures
-
-#### ✅ Date Handling
-- [ ] Events are sorted chronologically
-- [ ] "Today" shows only today's events
-- [ ] "This Week" shows current week events
-- [ ] "Next Week" shows upcoming week events
-- [ ] Smart date parsing handles various formats
-
-#### ✅ UI/UX
-- [ ] Responsive design works on mobile
-- [ ] Dark mode adapts to system preference
-- [ ] Loading states show during data fetch
-- [ ] Error banners are dismissible
-- [ ] Manual trigger button shows loading state
-
-#### ✅ Automated Scheduling
-- [ ] GitHub Actions workflow runs on schedule
-- [ ] AWS Lambda function executes properly
-- [ ] Test mode works without posting
-- [ ] Error alerts are sent on failures
-- [ ] Success notifications are sent
-
-### Test Mode
-
-All components support test mode for safe debugging:
+## Testing
 
 ```bash
-# Go scheduler in test mode
-TEST_MODE=true ./scheduler
-
-# Python Lambda in test mode
-TEST_MODE=true python3 lambda/handler.py
-
-# GitHub Actions with test mode
-# Set TEST_MODE=true in workflow inputs
+go test ./...     # unit tests for timeutil, digest, config, jobs
+go vet ./...
 ```
-
-### Automated Testing
-
-Run the Go test suite:
-```bash
-go test ./...
-```
-
-### Load Testing
-
-Test with multiple concurrent requests:
-```bash
-# Install hey (HTTP load testing tool)
-go install github.com/rakyll/hey@latest
-
-# Run load test
-hey -n 100 -c 10 http://localhost:8080/api/events
-```
-
-### Deployment Testing
-
-Test each deployment option:
-
-1. **GitHub Actions**: Enable workflow and monitor execution
-2. **AWS Lambda**: Deploy and test with EventBridge trigger
-3. **Google Cloud Functions**: Deploy and test HTTP trigger
-4. **Vercel**: Deploy and test serverless function
-
-## Troubleshooting
-
-### Common Issues
-
-#### Events Not Loading
-1. **Check browser console** for JavaScript errors
-2. **Verify backend is running** on correct port
-3. **Check network tab** for failed API requests
-4. **Review debug console** for detailed error logs
-
-#### Telegram Sharing Issues
-1. **Verify bot token** is correct and active
-2. **Check chat ID** is valid and bot is added to group
-3. **Ensure message length** is under 4096 characters
-4. **Test share URL** in incognito mode
-
-#### Date Parsing Problems
-1. **Check timezone** settings in browser
-2. **Verify date formats** in debug console
-3. **Test with sample data** to isolate issues
-
-### Debug Mode
-
-Enable detailed logging:
-1. Click "Debug Console" button
-2. Review real-time logs
-3. Export logs for analysis
-4. Check for specific error patterns
-
-### Sample Data Mode
-
-If all scrapers fail:
-1. App automatically switches to sample data
-2. Warning banner appears
-3. Full functionality remains available
-4. "Try Again" button re-attempts live fetch
-
-## Development
-
-### Adding New Event Sources
-
-1. **Create scraper package**:
-   ```go
-   // pkg/newsource/scraper.go
-   package newsource
-   
-   type Scraper struct {
-       client  *resty.Client
-       baseURL string
-   }
-   
-   func (s *Scraper) GetEvents(city, category string, period time.Duration) ([]models.Event, error) {
-       // Implementation
-   }
-   ```
-
-2. **Register in main.go**:
-   ```go
-   newsourceScraper := newsource.NewScraper()
-   agg := aggregator.NewAggregator(meetupScraper, eventbriteScraper, devEventsScraper, newsourceScraper)
-   ```
-
-3. **Update frontend**:
-   ```javascript
-   // Add to source filter options
-   <option value="newsource">New Source</option>
-   ```
-
-### Customizing Event Display
-
-Modify `renderEventCard()` in `web/app.js`:
-```javascript
-renderEventCard(event) {
-    // Customize event card HTML
-    return `<div class="event-card">...</div>`;
-}
-```
-
-### Adding New Filters
-
-1. **Add HTML control**:
-   ```html
-   <select id="newFilter">
-       <option value="all">All</option>
-       <!-- options -->
-   </select>
-   ```
-
-2. **Update JavaScript**:
-   ```javascript
-   document.getElementById('newFilter').addEventListener('change', () => {
-       this.applyFilters();
-   });
-   ```
-
-## Deployment
-
-### Docker Deployment
-
-```dockerfile
-FROM golang:1.24-alpine AS builder
-WORKDIR /app
-COPY . .
-RUN go mod tidy && go build -o main cmd/main.go
-
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
-COPY --from=builder /app/main .
-COPY --from=builder /app/web ./web
-EXPOSE 8080
-CMD ["./main"]
-```
-
-### Environment Variables for Production
-
-```bash
-export PORT=8080
-export PERIOD_DAYS=30
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For issues and questions:
-1. Check the debug console for error details
-2. Review this README for common solutions
-3. Open an issue with detailed error logs
-4. Include browser console output and network requests
-
-## Changelog
-
-### v1.0.0 (Current)
-- Initial release with Meetup, Eventbrite, and Dev.events support
-- Telegram integration with Bot API and share URLs
-- Robust error handling with sample data fallback
-- Modern responsive web UI with dark mode
-- Real-time debug console and comprehensive logging
-- Smart date parsing and event grouping
-- Production-ready with graceful degradation
+MIT — see [LICENSE](LICENSE).
