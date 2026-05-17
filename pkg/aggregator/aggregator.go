@@ -1,132 +1,66 @@
+// Package aggregator combines multiple event providers and filters/dedupes results.
 package aggregator
 
 import (
-	"event_calendar/internal/models"
 	"log"
 	"sort"
 	"time"
+
+	"event_calendar/internal/models"
 )
 
+// EventProvider produces events from a single source.
 type EventProvider interface {
 	GetEvents(city, category string, period time.Duration) ([]models.Event, error)
 }
 
+// Aggregator fans out to multiple providers, merges results, and removes duplicates.
 type Aggregator struct {
 	providers []EventProvider
 }
 
+// NewAggregator constructs an aggregator over the supplied providers.
 func NewAggregator(providers ...EventProvider) *Aggregator {
 	return &Aggregator{providers: providers}
 }
 
+// AggregateEvents calls every provider, merges their results, sorts by start time,
+// and removes duplicates. Per-provider errors are logged and skipped.
 func (a *Aggregator) AggregateEvents(city, category string, period time.Duration) ([]models.Event, error) {
-	var aggregated []models.Event
-	var errors []error
-	
-	for _, provider := range a.providers {
-		events, err := provider.GetEvents(city, category, period)
+	var out []models.Event
+	for _, p := range a.providers {
+		events, err := p.GetEvents(city, category, period)
 		if err != nil {
-			log.Printf("Provider error: %v", err)
-			errors = append(errors, err)
-			continue // Continue with other providers
+			log.Printf("provider error: %v", err)
+			continue
 		}
-		aggregated = append(aggregated, events...)
+		out = append(out, events...)
 	}
-	
-	// Sort events by start time
-	sort.Slice(aggregated, func(i, j int) bool {
-		return aggregated[i].StartTime.Before(aggregated[j].StartTime)
-	})
-	
-	// Remove duplicates based on URL and name
-	aggregated = removeDuplicates(aggregated)
-	
-	// Log results
-	log.Printf("Aggregated %d events from %d providers", len(aggregated), len(a.providers))
-	if len(errors) > 0 {
-		log.Printf("Encountered %d provider errors", len(errors))
-	}
-	
-	return aggregated, nil
+	sort.Slice(out, func(i, j int) bool { return out[i].StartTime.Before(out[j].StartTime) })
+	return removeDuplicates(out), nil
 }
 
-// removeDuplicates removes duplicate events based on URL and name similarity
 func removeDuplicates(events []models.Event) []models.Event {
 	seen := make(map[string]bool)
 	var unique []models.Event
-	
-	for _, event := range events {
-		key := event.URL + "|" + event.Name
-		if !seen[key] {
-			seen[key] = true
-			unique = append(unique, event)
+	for _, e := range events {
+		key := e.URL + "|" + e.Name
+		if seen[key] {
+			continue
 		}
+		seen[key] = true
+		unique = append(unique, e)
 	}
-	
 	return unique
 }
 
-// FilterFutureEvents filters out past events
-func FilterFutureEvents(events []models.Event) []models.Event {
-	now := time.Now()
+// FilterFutureEvents returns only events whose StartTime is after now.
+func FilterFutureEvents(events []models.Event, now time.Time) []models.Event {
 	var future []models.Event
-	
-	for _, event := range events {
-		if event.StartTime.After(now) {
-			future = append(future, event)
+	for _, e := range events {
+		if e.StartTime.After(now) {
+			future = append(future, e)
 		}
 	}
-	
 	return future
-}
-
-// GroupEventsByTime groups events by time periods
-func GroupEventsByTime(events []models.Event) map[string][]models.Event {
-	now := time.Now()
-	groups := map[string][]models.Event{
-		"Today":     {},
-		"This Week": {},
-		"Next Week": {},
-		"Later":     {},
-	}
-	
-	for _, event := range events {
-		if isSameDay(event.StartTime, now) {
-			groups["Today"] = append(groups["Today"], event)
-		} else if isThisWeek(event.StartTime) {
-			groups["This Week"] = append(groups["This Week"], event)
-		} else if isNextWeek(event.StartTime) {
-			groups["Next Week"] = append(groups["Next Week"], event)
-		} else {
-			groups["Later"] = append(groups["Later"], event)
-		}
-	}
-	
-	// Remove empty groups
-	for key, group := range groups {
-		if len(group) == 0 {
-			delete(groups, key)
-		}
-	}
-	
-	return groups
-}
-
-func isSameDay(date1, date2 time.Time) bool {
-	return date1.Year() == date2.Year() && 
-		   date1.YearDay() == date2.YearDay()
-}
-
-func isThisWeek(date time.Time) bool {
-	now := time.Now()
-	startOfWeek := now.AddDate(0, 0, -int(now.Weekday()))
-	endOfWeek := startOfWeek.AddDate(0, 0, 6)
-	return date.After(startOfWeek) && date.Before(endOfWeek.Add(24*time.Hour))
-}
-
-func isNextWeek(date time.Time) bool {
-	now := time.Now()
-	startOfNextWeek := now.AddDate(0, 0, 7-int(now.Weekday()))
-	endOfNextWeek := startOfNextWeek.AddDate(0, 0, 6)
-	return date.After(startOfNextWeek) && date.Before(endOfNextWeek.Add(24*time.Hour))
 }
