@@ -109,3 +109,9 @@ temp/
 bootstrap
 lambda.zip
 deploy/lambda.zip
+deploy/.env
+
+# Stray root binaries from `go build ./cmd/...`
+/cli
+/server
+/lambda
