@@ -1,0 +1,290 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Luma//Winnipeg Tech Thursday//EN
+X-WR-CALNAME:Winnipeg Tech Thursday
+X-WR-CALDESC:Luma Calendar
+REFRESH-INTERVAL;VALUE=DURATION:PT12H
+X-PUBLISHED-TTL:PT12H
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+DTSTART:20251115T153000Z
+DTEND:20251116T010000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Philippe Burns":MAILTO:calendar-invite@lu.ma
+UID:evt-PlfxNgnBPKGfl29@events.lu.ma
+SUMMARY:Hackathon - Solving the Canadian Productivity Crisis - Winnipeg
+DESCRIPTION:Get up-to-date information at: https://luma.com/f2bgkkwu\n\nAd
+ dress:\nLaunch Coworking - Exchange\nWinnipeg, Manitoba\nCanada\n\nHosted 
+ by Philippe Burns, Ben Myers & Fahad Zaidi
+LOCATION:Launch Coworking - Exchange, 167 Lombard Ave suite 500, Winnipeg,
+  MB R3B 3H8, Canada
+GEO:49.896552899999996;-97.136573
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260115T223000Z
+DTEND:20260116T003000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursdays":MAILTO:calendar-invite@lu.ma
+UID:calev-qBPBPV7eHnQLb8V@events.lu.ma
+SUMMARY:Raising Capital: Do's & Don'ts
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1979890010318?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260120T223000Z
+DTEND:20260121T003000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Winnipeg Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-EXavQNBdQc6FhOM@events.lu.ma
+SUMMARY:ScaleUP Fireside Chat with QDoc
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/scaleup-fireside-chat-with-qdoc-ticke
+ ts-1980417020620?aff=oddtdtcreator
+GEO:49.8987353;-97.1412028
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260122T223000Z
+DTEND:20260123T003000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursdays":MAILTO:calendar-invite@lu.ma
+UID:calev-MvNK4VqtMVsm2lF@events.lu.ma
+SUMMARY:Scale Ready: How Working Capital & Mentorship Build Strong Startup
+ s
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1979892857835?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260205T223000Z
+DTEND:20260206T003000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-SDCh2c2TIxxoyIH@events.lu.ma
+SUMMARY:ScaleUP Fireside Chat with QDoc
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1980417020620?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260212T223000Z
+DTEND:20260213T003000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-G20IyZY3UNQyuDE@events.lu.ma
+SUMMARY:Cost of Getting Things Wrong: Early Decisions That Make or Break P
+ rojects
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1982402622609?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260219T223000Z
+DTEND:20260220T003000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-wTlXzhkhfSdj8ef@events.lu.ma
+SUMMARY:Insights & Learnings from the Inaugural Indigenous Tech Conference
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1982923891739?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260226T223000Z
+DTEND:20260227T003000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-v4HmYZkJLCToyGz@events.lu.ma
+SUMMARY:From First Exit to Next Chapter: Lessons from Repeat Founders
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1980745275439?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260305T223000Z
+DTEND:20260306T003000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-EYp2Rsamo2FhUCz@events.lu.ma
+SUMMARY:Catalysts for Growth: Women Shaping Manitoba's Economic Landscape
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1983383629828?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260312T213000Z
+DTEND:20260312T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-HpD5DV3xtG9bZE0@events.lu.ma
+SUMMARY:Red Bull Basement Activation
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1983973611479?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260319T213000Z
+DTEND:20260319T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-HnysQmL5AhWAQ0Z@events.lu.ma
+SUMMARY:Simple. Specific. Acquired: A Manitoba Founder's Journey
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1984505469280?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260326T213000Z
+DTEND:20260326T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-vnCwrb4lNqpVlHk@events.lu.ma
+SUMMARY:AI, Cloud & Cyber Risk
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1984505913609?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260402T213000Z
+DTEND:20260402T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-855k6UNqALm2qRc@events.lu.ma
+SUMMARY:The CIO Perspective: Leading Digital Transformation in Government
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1985318513116?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260409T213000Z
+DTEND:20260409T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-RAn0PYfz46fTjC2@events.lu.ma
+SUMMARY:Securing Agentic AI
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1985882563205?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260416T213000Z
+DTEND:20260416T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-ZvaNXBfFhrjfOEH@events.lu.ma
+SUMMARY:Little Greenhouse That Could
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1985883346548?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260423T213000Z
+DTEND:20260423T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-Lw9FswReqRtfOTP@events.lu.ma
+SUMMARY:The Talent Equation: Connecting Skills, Hiring, and Opportunity
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1987003886112?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260430T213000Z
+DTEND:20260430T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-gGmZ0nFHsD7mneL@events.lu.ma
+SUMMARY:Trade Show Playbook: Turning Traffic into Traction
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1987007111760?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260507T213000Z
+DTEND:20260507T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-hdve9bgafJUTja3@events.lu.ma
+SUMMARY:Tech Together: The Allyship Advantage
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1988034730395?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260514T213000Z
+DTEND:20260515T003000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-tBiZCAkal4UTfJU@events.lu.ma
+SUMMARY:4th Annual Manitoba Tech Awards
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1987699061400?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260521T213000Z
+DTEND:20260521T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-K4fQ2vJTIo7av4R@events.lu.ma
+SUMMARY:AI and Workforce Development
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1988958300819?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260528T213000Z
+DTEND:20260528T233000Z
+DTSTAMP:20260523T044836Z
+ORGANIZER;CN="Tech Thursday":MAILTO:calendar-invite@lu.ma
+UID:calev-QmfZ5GBO6k383Lr@events.lu.ma
+SUMMARY:Clocking In Down Under: Construction Clock's Next Chapter in Austr
+ alia
+DESCRIPTION:Find more information on https://luma.com/winnipegtechthursday
+LOCATION:https://www.eventbrite.ca/e/1990125067650?aff=oddtdtcreator
+GEO:49.8988022;-97.14100239999999
+SEQUENCE:201674916
+STATUS:TENTATIVE
+END:VEVENT
+END:VCALENDAR

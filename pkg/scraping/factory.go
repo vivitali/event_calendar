@@ -17,11 +17,9 @@ func (f *ScrapingServiceFactory) CreateDefaultService() *ScrapingService {
 	service := NewScrapingService()
 	
 	// Register default scrapers
-	meetupScraper := NewMeetupScraper()
-	eventbriteScraper := NewEventbriteScraper()
-	
-	service.RegisterScraper("meetup", meetupScraper)
-	service.RegisterScraper("eventbrite", eventbriteScraper)
+	service.RegisterScraper("meetup", NewMeetupScraper())
+	service.RegisterScraper("eventbrite", NewEventbriteScraper())
+	service.RegisterScraper("luma", NewLumaScraper())
 	
 	log.Printf("Created scraping service with %d scrapers", len(service.GetRegisteredScrapers()))
 	return service
@@ -37,6 +35,8 @@ func (f *ScrapingServiceFactory) CreateServiceWithScrapers(scraperNames []string
 			service.RegisterScraper("meetup", NewMeetupScraper())
 		case "eventbrite":
 			service.RegisterScraper("eventbrite", NewEventbriteScraper())
+		case "luma":
+			service.RegisterScraper("luma", NewLumaScraper())
 		default:
 			log.Printf("Warning: Unknown scraper name '%s', skipping", name)
 		}
