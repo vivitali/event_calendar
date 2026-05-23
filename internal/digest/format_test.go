@@ -33,9 +33,9 @@ func TestFormatEventsMessage_GroupsAndHeaders(t *testing.T) {
 		"*Today Event*",
 		"*Friday Event*",
 		"*Next Week Event*",
-		"[🟠 Meetup](https://e/1)",
-		"[🟥 Eventbrite](https://e/2)",
-		"[🟠 Meetup](https://e/3)",
+		"— [Meetup](https://e/1)",
+		"— [Eventbrite](https://e/2)",
+		"— [Meetup](https://e/3)",
 		"`Wed Jan 7`",  // date in monospace
 		"📍 `Hub`",      // venue with pin emoji
 		`\#WinnipegTech`,

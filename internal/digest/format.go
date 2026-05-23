@@ -122,10 +122,10 @@ func bucketHeader(period string, now time.Time) string {
 func writeEvent(sb *strings.Builder, e models.Event) {
 	name := "*" + escMD(strings.TrimSpace(e.Name)) + "*"
 	if e.URL != "" {
-		fmt.Fprintf(sb, "• %s [%s](%s)\n",
+		fmt.Fprintf(sb, "• %s — [%s](%s)\n",
 			name, escMD(sourceName(e.Source)), escMDURL(e.URL))
 	} else {
-		fmt.Fprintf(sb, "• %s %s\n", name, codeMD(sourceName(e.Source)))
+		fmt.Fprintf(sb, "• %s — %s\n", name, codeMD(sourceName(e.Source)))
 	}
 
 	var meta []string
@@ -189,11 +189,11 @@ func isOnlineVenue(v string) bool {
 func sourceName(source string) string {
 	switch source {
 	case "meetup":
-		return "🟠 Meetup"
+		return "Meetup"
 	case "eventbrite":
-		return "🟥 Eventbrite"
+		return "Eventbrite"
 	case "luma":
-		return "🟣 Luma"
+		return "Luma"
 	default:
 		return source
 	}
