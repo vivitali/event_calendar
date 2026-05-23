@@ -107,15 +107,15 @@ func bucketHeader(period string, now time.Time) string {
 
 	switch period {
 	case "Today":
-		return fmt.Sprintf("Today (%s)", today.Format("Mon, Jan 2"))
+		return fmt.Sprintf("🔥 Today (%s)", today.Format("Mon, Jan 2"))
 	case "This Week":
-		return fmt.Sprintf("This Week (%s – %s)",
+		return fmt.Sprintf("⚡ This Week (%s – %s)",
 			startOfWeek.Format("Jan 2"), endOfWeek.Format("Jan 2"))
 	case "Next Week":
-		return fmt.Sprintf("Next Week (%s – %s)",
+		return fmt.Sprintf("📅 Next Week (%s – %s)",
 			startOfNext.Format("Jan 2"), endOfNext.Format("Jan 2"))
 	default:
-		return period
+		return "🔮 " + period
 	}
 }
 
@@ -132,8 +132,13 @@ func writeEvent(sb *strings.Builder, e models.Event) {
 	if !e.StartTime.IsZero() {
 		meta = append(meta, codeMD(e.StartTime.Format("Mon Jan 2")))
 	}
-	if v := cleanVenue(e.Venue); v != "" {
-		meta = append(meta, codeMD(v))
+	switch v := cleanVenue(e.Venue); {
+	case v == "":
+		// no venue
+	case isOnlineVenue(v):
+		meta = append(meta, "💻 Online")
+	default:
+		meta = append(meta, "📍 "+codeMD(v))
 	}
 	if e.Price != "" && e.Price != "Free" {
 		meta = append(meta, codeMD(e.Price))
@@ -163,24 +168,32 @@ func annualFooter(now time.Time) string {
 	return sb.String()
 }
 
-// cleanVenue drops placeholder strings that add no information.
+// cleanVenue drops placeholder strings that add no information. "Online"
+// is kept (case-insensitively normalized) so the renderer can show 💻 instead
+// of dropping the meta entirely.
 func cleanVenue(v string) string {
 	v = strings.TrimSpace(v)
 	switch strings.ToLower(v) {
-	case "", "event", "online", "tbd", "tba", "none":
+	case "", "event", "tbd", "tba", "none":
 		return ""
+	case "online", "virtual", "remote", "online event":
+		return "online"
 	}
 	return v
+}
+
+func isOnlineVenue(v string) bool {
+	return v == "online"
 }
 
 func sourceName(source string) string {
 	switch source {
 	case "meetup":
-		return "Meetup"
+		return "🟠 Meetup"
 	case "eventbrite":
-		return "Eventbrite"
+		return "🟥 Eventbrite"
 	case "luma":
-		return "Luma"
+		return "🟣 Luma"
 	default:
 		return source
 	}

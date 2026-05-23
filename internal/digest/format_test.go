@@ -27,17 +27,17 @@ func TestFormatEventsMessage_GroupsAndHeaders(t *testing.T) {
 	for _, want := range []string{
 		"Winnipeg Tech Events",
 		"3 upcoming",
-		`*Today \(Wed, Jan 7\)*`,
-		`*This Week \(Jan 4 – Jan 10\)*`,
-		`*Next Week \(Jan 11 – Jan 17\)*`,
+		`*🔥 Today \(Wed, Jan 7\)*`,
+		`*⚡ This Week \(Jan 4 – Jan 10\)*`,
+		`*📅 Next Week \(Jan 11 – Jan 17\)*`,
 		"*Today Event*",
 		"*Friday Event*",
 		"*Next Week Event*",
-		"[Meetup](https://e/1)",
-		"[Eventbrite](https://e/2)",
-		"[Meetup](https://e/3)",
-		"`Wed Jan 7`", // date in monospace
-		"`Hub`",       // venue in monospace
+		"[🟠 Meetup](https://e/1)",
+		"[🟥 Eventbrite](https://e/2)",
+		"[🟠 Meetup](https://e/3)",
+		"`Wed Jan 7`",  // date in monospace
+		"📍 `Hub`",      // venue with pin emoji
 		`\#WinnipegTech`,
 		`\#TechEvents`,
 	} {
@@ -51,14 +51,21 @@ func TestFormatEventsMessage_DropsGenericVenue(t *testing.T) {
 	now := time.Date(2026, 1, 7, 12, 0, 0, 0, time.UTC)
 	events := []models.Event{
 		{Name: "X", URL: "https://e/x", Source: "eventbrite", StartTime: now.Add(24 * time.Hour), Venue: "Event"},
+	}
+	msg := FormatEventsMessage(events, now)
+	if strings.Contains(msg, "Event\n") || strings.Contains(msg, "`Event`") {
+		t.Errorf("generic 'Event' venue should be dropped:\n%s", msg)
+	}
+}
+
+func TestFormatEventsMessage_RendersOnlineVenue(t *testing.T) {
+	now := time.Date(2026, 1, 7, 12, 0, 0, 0, time.UTC)
+	events := []models.Event{
 		{Name: "Y", URL: "https://e/y", Source: "meetup", StartTime: now.Add(24 * time.Hour), Venue: "Online"},
 	}
 	msg := FormatEventsMessage(events, now)
-	if strings.Contains(msg, "📍 Event") || strings.Contains(msg, "· Event\n") {
-		t.Errorf("generic 'Event' venue should be dropped:\n%s", msg)
-	}
-	if strings.Contains(msg, "📍 Online") || strings.Contains(msg, "· Online\n") {
-		t.Errorf("generic 'Online' venue should be dropped:\n%s", msg)
+	if !strings.Contains(msg, "💻 Online") {
+		t.Errorf("expected '💻 Online' marker for online venue:\n%s", msg)
 	}
 }
 
