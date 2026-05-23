@@ -16,8 +16,6 @@ import (
 
 	"event_calendar/internal/config"
 	"event_calendar/internal/jobs"
-	"event_calendar/internal/models"
-	"event_calendar/pkg/devevents"
 	"event_calendar/pkg/scraping"
 	"event_calendar/pkg/telegram"
 )
@@ -46,7 +44,7 @@ func main() {
 
 func runEvents(cfg config.Config) jobs.Result {
 	factory := scraping.NewScrapingServiceFactory()
-	scraper := combinedScraper{main: factory.CreateDefaultService(), dev: devevents.NewScraper()}
+	scraper := factory.CreateDefaultService()
 	sender := telegram.NewService(cfg.BotToken)
 	return jobs.RunEventsDigest(jobs.EventsDeps{Scraper: scraper, Sender: sender, Now: time.Now()}, cfg)
 }
@@ -54,21 +52,4 @@ func runEvents(cfg config.Config) jobs.Result {
 func runPoll(cfg config.Config) jobs.Result {
 	poller := telegram.NewService(cfg.PollBotToken)
 	return jobs.RunMonthlyPoll(jobs.PollDeps{Poller: poller}, cfg)
-}
-
-type combinedScraper struct {
-	main *scraping.ScrapingService
-	dev  *devevents.Scraper
-}
-
-func (c combinedScraper) ScrapeEvents(city, category string, period time.Duration) ([]models.Event, error) {
-	main, mainErr := c.main.ScrapeEvents(city, category, period)
-	if mainErr != nil {
-		log.Printf("main scraper error: %v", mainErr)
-	}
-	dev, devErr := c.dev.GetEvents(city, category, period)
-	if devErr != nil {
-		log.Printf("devevents error: %v", devErr)
-	}
-	return append(main, dev...), nil
 }

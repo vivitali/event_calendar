@@ -84,8 +84,6 @@ func sourceLabel(source string) string {
 		return "`[Meetup]`"
 	case "eventbrite":
 		return "`[Eventbrite]`"
-	case "devevents":
-		return "`[Dev.events]`"
 	default:
 		return "`[" + source + "]`"
 	}

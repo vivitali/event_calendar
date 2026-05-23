@@ -21,7 +21,7 @@ func TestFormatEventsMessage_GroupsAndHeaders(t *testing.T) {
 	events := []models.Event{
 		{Name: "Today Event", URL: "https://e/1", Source: "meetup", StartTime: now.Add(3 * time.Hour), Venue: "Hub"},
 		{Name: "Friday Event", URL: "https://e/2", Source: "eventbrite", StartTime: time.Date(2026, 1, 9, 18, 0, 0, 0, time.UTC)},
-		{Name: "Next Week Event", URL: "https://e/3", Source: "devevents", StartTime: time.Date(2026, 1, 14, 18, 0, 0, 0, time.UTC)},
+		{Name: "Next Week Event", URL: "https://e/3", Source: "meetup", StartTime: time.Date(2026, 1, 14, 18, 0, 0, 0, time.UTC)},
 	}
 	msg := FormatEventsMessage(events, now)
 	for _, want := range []string{
@@ -34,7 +34,6 @@ func TestFormatEventsMessage_GroupsAndHeaders(t *testing.T) {
 		"Next Week Event",
 		"[Meetup]",
 		"[Eventbrite]",
-		"[Dev.events]",
 		"https://e/1",
 	} {
 		if !strings.Contains(msg, want) {

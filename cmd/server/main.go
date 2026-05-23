@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"event_calendar/pkg/devevents"
 	"event_calendar/pkg/scraping"
 )
 
@@ -116,18 +115,6 @@ func aggregateEventsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("✅ [API] Scraping service completed in %v, found %d events", scrapingDuration, len(allEvents))
-
-	// Also include devevents scraper for backward compatibility
-	log.Printf("🔄 [API] Fetching events from devevents scraper...")
-	devEventsScraper := devevents.NewScraper()
-	devEvents, err := devEventsScraper.GetEvents(params.City, params.Categories[0], period)
-	if err != nil {
-		log.Printf("⚠️  [API] DevEvents scraping error: %v", err)
-	} else {
-		log.Printf("✅ [API] DevEvents scraper found %d events", len(devEvents))
-		allEvents = append(allEvents, devEvents...)
-	}
-
 	log.Printf("📊 [API] Total events to return: %d", len(allEvents))
 	
 	// Log sample events for debugging
