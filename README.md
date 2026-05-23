@@ -5,9 +5,8 @@ Discovers, aggregates, and shares technology events happening in Winnipeg, Manit
 ## Features
 
 ### Multi-Source Event Aggregation
-- **Meetup.com** — tech events from Winnipeg area
-- **Eventbrite** — tech events with smart datetime parsing
-- **Dev.events** — developer events in Winnipeg/Manitoba
+- **Meetup.com** — schema.org JSON-LD parsing
+- **Eventbrite** — `window.__SERVER_DATA__` SSR JSON, with same-organizer-same-day dedupe
 
 ### Telegram Integration
 - Weekly events digest posted automatically
@@ -20,8 +19,12 @@ Discovers, aggregates, and shares technology events happening in Winnipeg, Manit
 - Grouping by Today / This Week / Next Week / Later
 
 ### Scheduling
-- AWS Lambda + EventBridge runs the jobs on schedule
-- No GitHub Actions (avoids the 60-day-inactivity workflow timeout)
+- AWS Lambda + EventBridge runs the jobs on schedule (independent of GitHub
+  Actions, so it survives long periods of repo inactivity)
+
+### Deploy
+- Manual: `./deploy/deploy.sh`
+- CI: `.github/workflows/deploy.yml` on push to `main` (OIDC, no long-lived AWS keys)
 
 ## Quick Start
 
@@ -98,9 +101,119 @@ aws logs tail /aws/lambda/winnipeg-tech-events --follow
 
 ### Telegram Bot Setup
 
-1. Message [@BotFather](https://t.me/botfather) → `/newbot` → save the token.
-2. Add the bot to your group. Send any message in the group.
-3. Visit `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy the chat ID.
+You need at minimum one bot + chat ID for the weekly events digest. You can
+optionally add a **second** bot for the monthly poll (otherwise the main bot
+posts both).
+
+#### 1. Create the bot
+
+1. In Telegram, open a chat with [@BotFather](https://t.me/botfather).
+2. Send `/newbot` and follow the prompts. Pick:
+   - A **name** (display, e.g. `Winnipeg Tech Events`)
+   - A **username** ending in `bot` (e.g. `winnipeg_tech_events_bot`)
+3. BotFather replies with a token like `8123456789:AAH...`. **This is `TELEGRAM_BOT_TOKEN`.** Save it.
+4. (Optional) Send `/setdescription`, `/setabouttext`, `/setuserpic` to fill out the bot profile.
+
+#### 2. Get the chat ID
+
+For a group chat (recommended):
+
+1. Add the bot to the target group as a member.
+2. In Telegram, send any message in that group (e.g. `hi`).
+3. Open the following URL in a browser, replacing `<TOKEN>`:
+   ```
+   https://api.telegram.org/bot<TOKEN>/getUpdates
+   ```
+4. Find the most recent update's `message.chat.id`. For groups this is a
+   negative integer like `-1001234567890`. **This is `TELEGRAM_CHAT_ID`.**
+
+For your own DM with the bot, click `/start` first, then the chat ID will be
+your positive user ID (e.g. `123456789`).
+
+#### 3. (Optional) Second bot for the poll
+
+If you want the monthly meetup poll to come from a different bot:
+
+1. Repeat step 1 with a new BotFather `/newbot` → `TELEGRAM_POLL_BOT_TOKEN`.
+2. Add that bot to a chat (can be the same group) → `TELEGRAM_POLL_CHAT_ID`.
+
+If you skip this, both jobs use `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`.
+
+## Where secrets live
+
+| Variable | `deploy/.env` (local) | GitHub Secrets (CI) | Lambda env |
+|---|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | ✓ | ✓ | set by deploy |
+| `TELEGRAM_CHAT_ID` | ✓ | ✓ | set by deploy |
+| `TELEGRAM_POLL_BOT_TOKEN` (optional) | ✓ | ✓ | set by deploy |
+| `TELEGRAM_POLL_CHAT_ID` (optional) | ✓ | ✓ | set by deploy |
+| `AWS_ACCOUNT_ID` | — | ✓ (for OIDC role ARN) | — |
+
+Non-secret tuning (`CITY`, `CATEGORIES`, `PERIOD_DAYS`, `TEST_MODE`) lives in
+GitHub **Variables** (not Secrets) — see the workflow defaults.
+
+`deploy/.env` is gitignored. Never commit it.
+
+## Deploy via GitHub Actions
+
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) auto-deploys
+on push to `main` (and via manual dispatch). It uses **OIDC** — no long-lived
+AWS keys stored in GitHub.
+
+### One-time AWS setup
+
+Run [`deploy/setup-gha.sh`](deploy/setup-gha.sh) — it creates the GitHub OIDC
+provider, the deploy role with a trust policy scoped to your repo, and an
+inline policy granting Lambda / EventBridge / IAM / CloudWatch Logs access.
+Idempotent — safe to re-run.
+
+```bash
+aws login                              # or: aws configure sso
+./deploy/setup-gha.sh                  # infers repo from "origin"
+# or: REPO=owner/name ./deploy/setup-gha.sh
+```
+
+The script prints the `AWS_ACCOUNT_ID` value you need to put into GitHub
+Secrets, and the role ARN the workflow assumes.
+
+What it creates (under the hood):
+- IAM OIDC provider for `token.actions.githubusercontent.com`
+- IAM role `github-deploy-winnipeg-tech-events` with a trust policy locked to
+  `repo:<owner>/<repo>:ref:refs/heads/main`
+- Inline policy `deploy-permissions` with `lambda:*`, `events:*`, the IAM
+  actions `deploy.sh` needs (`GetRole`/`CreateRole`/`AttachRolePolicy`/`PassRole`),
+  and CloudWatch Logs retention setup
+
+### One-time GitHub setup
+
+In the repo on github.com: **Settings → Secrets and variables → Actions**.
+
+**Secrets** (encrypted):
+
+| Name | Value |
+|---|---|
+| `AWS_ACCOUNT_ID` | Your 12-digit AWS account id |
+| `TELEGRAM_BOT_TOKEN` | From BotFather |
+| `TELEGRAM_CHAT_ID` | From `getUpdates` |
+| `TELEGRAM_POLL_BOT_TOKEN` | (Optional) second bot |
+| `TELEGRAM_POLL_CHAT_ID` | (Optional) second chat |
+
+**Variables** (plain text):
+
+| Name | Default if unset | Purpose |
+|---|---|---|
+| `CITY` | `Winnipeg` | Scrape target |
+| `CATEGORIES` | `tech` | Scrape category |
+| `PERIOD_DAYS` | `30` | Days ahead to include |
+| `TEST_MODE` | `false` | Build digest but don't send |
+
+### Trigger a deploy
+
+- **Automatic**: push to `main`.
+- **Manual**: GitHub repo → **Actions** → **Deploy Lambda** → **Run workflow**.
+
+The workflow ends with a smoke-test invocation of the deployed Lambda and
+prints the JSON result in the run log.
 
 ## Architecture
 
@@ -108,7 +221,8 @@ aws logs tail /aws/lambda/winnipeg-tech-events --follow
 EventBridge Scheduler (weekly Mon 14:00 UTC) ─┐
                                               ├──→ Lambda (Go, provided.al2023)
 EventBridge Scheduler (monthly 20th 14:00 UTC)┘         │
-                                                        ├──→ scrape Meetup/Eventbrite/Dev.events
+                                                        ├──→ scrape Meetup (JSON-LD)
+                                                        ├──→ scrape Eventbrite (SSR JSON)
                                                         └──→ Telegram Bot API (digest or poll)
 ```
 
@@ -127,7 +241,8 @@ internal/
   models/       # Event struct
 pkg/
   scraping/     # Multi-source scraping service
-  meetup/       eventbrite/   devevents/   # individual scrapers
+  meetup/       # Meetup scraper (schema.org JSON-LD)
+  eventbrite/   # Eventbrite scraper (window.__SERVER_DATA__)
   telegram/     # Telegram Bot API client
   aggregator/   # Result merging & deduping
 deploy/
