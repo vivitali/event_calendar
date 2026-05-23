@@ -22,7 +22,8 @@ func FormatEventsMessage(events []models.Event, now time.Time) string {
 	}
 
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "🚀 *Winnipeg Tech Events - %s*\n\n", now.Format("Monday, January 2, 2006"))
+	fmt.Fprintf(&sb, "🚀 *Winnipeg Tech Events* — %s · %d upcoming\n\n",
+		now.Format("Mon Jan 2"), len(events))
 
 	groups := groupEvents(events, now)
 	for _, period := range periodOrder {
@@ -30,12 +31,15 @@ func FormatEventsMessage(events []models.Event, now time.Time) string {
 		if len(bucket) == 0 {
 			continue
 		}
-		fmt.Fprintf(&sb, "*%s:*\n", period)
+		fmt.Fprintf(&sb, "*%s*\n", period)
 		for _, e := range bucket {
 			writeEvent(&sb, e)
 		}
+		sb.WriteString("\n")
 	}
-	sb.WriteString("\n_Shared via Winnipeg Tech Events Tracker_")
+
+	sb.WriteString("_Shared via Winnipeg Tech Events Tracker_\n")
+	sb.WriteString("#WinnipegTech #TechEvents")
 
 	out := sb.String()
 	if len(out) > telegramMaxLen {
@@ -62,20 +66,49 @@ func groupEvents(events []models.Event, now time.Time) map[string][]models.Event
 }
 
 func writeEvent(sb *strings.Builder, e models.Event) {
-	fmt.Fprintf(sb, "• %s %s\n", e.Name, sourceLabel(e.Source))
-	if !e.StartTime.IsZero() {
-		fmt.Fprintf(sb, "  📅 %s\n", e.StartTime.Format("Monday, Jan 2"))
+	name := escapeMarkdown(strings.TrimSpace(e.Name))
+	if e.URL != "" {
+		fmt.Fprintf(sb, "• [%s](%s) %s\n", name, e.URL, sourceLabel(e.Source))
+	} else {
+		fmt.Fprintf(sb, "• %s %s\n", name, sourceLabel(e.Source))
 	}
-	if e.Venue != "" {
-		fmt.Fprintf(sb, "  📍 %s\n", e.Venue)
+
+	var meta []string
+	if !e.StartTime.IsZero() {
+		meta = append(meta, e.StartTime.Format("Mon Jan 2"))
+	}
+	if v := cleanVenue(e.Venue); v != "" {
+		meta = append(meta, v)
 	}
 	if e.Price != "" && e.Price != "Free" {
-		fmt.Fprintf(sb, "  💰 %s\n", e.Price)
+		meta = append(meta, e.Price)
 	}
-	if e.URL != "" {
-		fmt.Fprintf(sb, "  🔗 [View Event](%s)\n", e.URL)
+	if len(meta) > 0 {
+		fmt.Fprintf(sb, "  %s\n", strings.Join(meta, " · "))
 	}
-	sb.WriteString("\n")
+}
+
+// cleanVenue drops placeholder strings that add no information.
+func cleanVenue(v string) string {
+	v = strings.TrimSpace(v)
+	switch strings.ToLower(v) {
+	case "", "event", "online", "tbd", "tba", "none":
+		return ""
+	}
+	return v
+}
+
+// escapeMarkdown escapes the characters that would break Telegram MarkdownV1
+// link text. Brackets in link text break the parser; underscores/asterisks
+// inside titles toggle formatting unintentionally.
+func escapeMarkdown(s string) string {
+	r := strings.NewReplacer(
+		"[", "(",
+		"]", ")",
+		"*", "·",
+		"_", " ",
+	)
+	return r.Replace(s)
 }
 
 func sourceLabel(source string) string {

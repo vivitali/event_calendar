@@ -26,19 +26,36 @@ func TestFormatEventsMessage_GroupsAndHeaders(t *testing.T) {
 	msg := FormatEventsMessage(events, now)
 	for _, want := range []string{
 		"Winnipeg Tech Events",
-		"*Today:*",
-		"*This Week:*",
-		"*Next Week:*",
-		"Today Event",
-		"Friday Event",
-		"Next Week Event",
+		"3 upcoming",
+		"*Today*",
+		"*This Week*",
+		"*Next Week*",
+		"[Today Event](https://e/1)",
+		"[Friday Event](https://e/2)",
+		"[Next Week Event](https://e/3)",
 		"[Meetup]",
 		"[Eventbrite]",
-		"https://e/1",
+		"#WinnipegTech",
+		"#TechEvents",
 	} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("message missing %q.\n--- message ---\n%s", want, msg)
 		}
+	}
+}
+
+func TestFormatEventsMessage_DropsGenericVenue(t *testing.T) {
+	now := time.Date(2026, 1, 7, 12, 0, 0, 0, time.UTC)
+	events := []models.Event{
+		{Name: "X", URL: "https://e/x", Source: "eventbrite", StartTime: now.Add(24 * time.Hour), Venue: "Event"},
+		{Name: "Y", URL: "https://e/y", Source: "meetup", StartTime: now.Add(24 * time.Hour), Venue: "Online"},
+	}
+	msg := FormatEventsMessage(events, now)
+	if strings.Contains(msg, "📍 Event") || strings.Contains(msg, "· Event\n") {
+		t.Errorf("generic 'Event' venue should be dropped:\n%s", msg)
+	}
+	if strings.Contains(msg, "📍 Online") || strings.Contains(msg, "· Online\n") {
+		t.Errorf("generic 'Online' venue should be dropped:\n%s", msg)
 	}
 }
 
