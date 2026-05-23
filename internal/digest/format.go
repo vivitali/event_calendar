@@ -120,7 +120,7 @@ func bucketHeader(period string, now time.Time) string {
 }
 
 func writeEvent(sb *strings.Builder, e models.Event) {
-	name := escMD(strings.TrimSpace(e.Name))
+	name := "*" + escMD(strings.TrimSpace(e.Name)) + "*"
 	if e.URL != "" {
 		fmt.Fprintf(sb, "• %s [%s](%s)\n",
 			name, escMD(sourceName(e.Source)), escMDURL(e.URL))
