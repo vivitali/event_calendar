@@ -27,19 +27,19 @@ func TestFormatEventsMessage_GroupsAndHeaders(t *testing.T) {
 	for _, want := range []string{
 		"Winnipeg Tech Events",
 		"3 upcoming",
-		"*Today (Wed, Jan 7)*",
-		"*This Week (Jan 4 – Jan 10)*",
-		"*Next Week (Jan 11 – Jan 17)*",
+		`*Today \(Wed, Jan 7\)*`,
+		`*This Week \(Jan 4 – Jan 10\)*`,
+		`*Next Week \(Jan 11 – Jan 17\)*`,
 		"Today Event",
 		"Friday Event",
 		"Next Week Event",
 		"[Meetup](https://e/1)",
 		"[Eventbrite](https://e/2)",
 		"[Meetup](https://e/3)",
-		"`Wed Jan 7`",    // date in monospace
-		"`Hub`",          // venue in monospace
-		"#WinnipegTech",
-		"#TechEvents",
+		"`Wed Jan 7`", // date in monospace
+		"`Hub`",       // venue in monospace
+		`\#WinnipegTech`,
+		`\#TechEvents`,
 	} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("message missing %q.\n--- message ---\n%s", want, msg)
@@ -59,6 +59,21 @@ func TestFormatEventsMessage_DropsGenericVenue(t *testing.T) {
 	}
 	if strings.Contains(msg, "📍 Online") || strings.Contains(msg, "· Online\n") {
 		t.Errorf("generic 'Online' venue should be dropped:\n%s", msg)
+	}
+}
+
+func TestFormatEventsMessage_HasExpandableAnnualFooter(t *testing.T) {
+	// Use a now well before all annual events so the footer is present.
+	now := time.Date(2026, 1, 7, 12, 0, 0, 0, time.UTC)
+	events := []models.Event{
+		{Name: "X", URL: "https://e/x", Source: "meetup", StartTime: now.Add(24 * time.Hour)},
+	}
+	msg := FormatEventsMessage(events, now)
+	if !strings.Contains(msg, "**>📌 Save the date") {
+		t.Errorf("missing expandable blockquote opener:\n%s", msg)
+	}
+	if !strings.HasSuffix(strings.TrimSpace(strings.Split(msg, "\n_Shared")[0]), "||") {
+		t.Errorf("expandable blockquote should end with || before footer:\n%s", msg)
 	}
 }
 

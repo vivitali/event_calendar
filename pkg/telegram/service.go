@@ -56,7 +56,7 @@ func (s *Service) SendMessage(chatID, message string) error {
 	return s.post("/sendMessage", sendMessageRequest{
 		ChatID:                chatID,
 		Text:                  message,
-		ParseMode:             "Markdown",
+		ParseMode:             "MarkdownV2",
 		DisableWebPagePreview: true,
 	})
 }

@@ -14,38 +14,68 @@ const telegramMaxLen = 4096
 
 var periodOrder = []string{"Today", "This Week", "Next Week", "Later"}
 
-// FormatEventsMessage renders a Markdown-formatted Telegram digest of the events,
-// grouped by time bucket relative to now. The result is guaranteed to be <= 4096 chars.
+// FormatEventsMessage renders a MarkdownV2 Telegram digest of the events,
+// grouped by time bucket relative to now. Result is guaranteed to be <= 4096 chars.
+//
+// Layout: header → grouped events → (optional) expandable annual-events
+// blockquote → tracker credit + hashtags. When the message would exceed
+// the Telegram limit we truncate the event list (never the trailing
+// blockquote or hashtags) so the resulting message still parses cleanly.
 func FormatEventsMessage(events []models.Event, now time.Time) string {
 	if len(events) == 0 {
-		return "📅 *No upcoming events found* for Winnipeg tech community."
+		return "📅 *No upcoming events found* for Winnipeg tech community\\."
 	}
 
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "🚀 *Winnipeg Tech Events* — %s · %d upcoming\n\n",
-		now.Format("Mon Jan 2"), len(events))
+	header := fmt.Sprintf("🚀 *Winnipeg Tech Events* — %s · %d upcoming\n\n",
+		escMD(now.Format("Mon Jan 2")), len(events))
 
+	var trailer strings.Builder
+	if af := annualFooter(now); af != "" {
+		trailer.WriteString(af)
+		trailer.WriteString("\n")
+	}
+	trailer.WriteString("_Shared via Winnipeg Tech Events Tracker_\n")
+	trailer.WriteString("\\#WinnipegTech \\#TechEvents")
+
+	body := buildEventsBody(events, now)
+	budget := telegramMaxLen - len(header) - len(trailer.String())
+	body = truncateToLines(body, budget)
+
+	return header + body + trailer.String()
+}
+
+// buildEventsBody renders the grouped event list.
+func buildEventsBody(events []models.Event, now time.Time) string {
+	var sb strings.Builder
 	groups := groupEvents(events, now)
 	for _, period := range periodOrder {
 		bucket := groups[period]
 		if len(bucket) == 0 {
 			continue
 		}
-		fmt.Fprintf(&sb, "*%s*\n", bucketHeader(period, now))
+		fmt.Fprintf(&sb, "*%s*\n", escMD(bucketHeader(period, now)))
 		for _, e := range bucket {
 			writeEvent(&sb, e)
 		}
 		sb.WriteString("\n")
 	}
+	return sb.String()
+}
 
-	sb.WriteString("_Shared via Winnipeg Tech Events Tracker_\n")
-	sb.WriteString("#WinnipegTech #TechEvents")
-
-	out := sb.String()
-	if len(out) > telegramMaxLen {
-		out = out[:telegramMaxLen-3] + "..."
+// truncateToLines drops trailing lines until the string fits in budget bytes,
+// then re-appends a trailing newline so the next section starts cleanly.
+func truncateToLines(s string, budget int) string {
+	if len(s) <= budget {
+		return s
 	}
-	return out
+	if budget <= 0 {
+		return ""
+	}
+	cut := s[:budget]
+	if i := strings.LastIndexByte(cut, '\n'); i >= 0 {
+		return cut[:i+1]
+	}
+	return ""
 }
 
 func groupEvents(events []models.Event, now time.Time) map[string][]models.Event {
@@ -65,9 +95,8 @@ func groupEvents(events []models.Event, now time.Time) map[string][]models.Event
 	return groups
 }
 
-// bucketHeader returns a Markdown header label with a date range so readers
-// know at a glance what window each bucket covers. The "Later" bucket has no
-// fixed range so the label stays bare.
+// bucketHeader returns a header label with a date range for the period.
+// "Later" stays bare since its window is open-ended.
 func bucketHeader(period string, now time.Time) string {
 	y, m, d := now.Date()
 	today := time.Date(y, m, d, 0, 0, 0, 0, now.Location())
@@ -91,26 +120,47 @@ func bucketHeader(period string, now time.Time) string {
 }
 
 func writeEvent(sb *strings.Builder, e models.Event) {
-	name := escapeMarkdown(strings.TrimSpace(e.Name))
+	name := escMD(strings.TrimSpace(e.Name))
 	if e.URL != "" {
-		fmt.Fprintf(sb, "• %s [%s](%s)\n", name, sourceName(e.Source), e.URL)
+		fmt.Fprintf(sb, "• %s [%s](%s)\n",
+			name, escMD(sourceName(e.Source)), escMDURL(e.URL))
 	} else {
-		fmt.Fprintf(sb, "• %s %s\n", name, sourceLabel(e.Source))
+		fmt.Fprintf(sb, "• %s %s\n", name, codeMD(sourceName(e.Source)))
 	}
 
 	var meta []string
 	if !e.StartTime.IsZero() {
-		meta = append(meta, "`"+e.StartTime.Format("Mon Jan 2")+"`")
+		meta = append(meta, codeMD(e.StartTime.Format("Mon Jan 2")))
 	}
 	if v := cleanVenue(e.Venue); v != "" {
-		meta = append(meta, "`"+v+"`")
+		meta = append(meta, codeMD(v))
 	}
 	if e.Price != "" && e.Price != "Free" {
-		meta = append(meta, "`"+e.Price+"`")
+		meta = append(meta, codeMD(e.Price))
 	}
 	if len(meta) > 0 {
 		fmt.Fprintf(sb, "  %s\n", strings.Join(meta, " · "))
 	}
+}
+
+// annualFooter renders future annual events as an expandable MarkdownV2 quote.
+// Returns "" when there's nothing to show.
+func annualFooter(now time.Time) string {
+	upcoming := futureAnnualEvents(now)
+	if len(upcoming) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("**>📌 Save the date — annual events\n")
+	for i, e := range upcoming {
+		line := fmt.Sprintf(">• %s — %s [info](%s)",
+			escMD(e.Name), escMD(e.Date.Format("Jan 2, 2006")), escMDURL(e.URL))
+		if i == len(upcoming)-1 {
+			line += "||"
+		}
+		sb.WriteString(line + "\n")
+	}
+	return sb.String()
 }
 
 // cleanVenue drops placeholder strings that add no information.
@@ -123,30 +173,54 @@ func cleanVenue(v string) string {
 	return v
 }
 
-// escapeMarkdown escapes the characters that would break Telegram MarkdownV1
-// link text. Brackets in link text break the parser; underscores/asterisks
-// inside titles toggle formatting unintentionally.
-func escapeMarkdown(s string) string {
-	r := strings.NewReplacer(
-		"[", "(",
-		"]", ")",
-		"*", "·",
-		"_", " ",
-	)
-	return r.Replace(s)
-}
-
-func sourceLabel(source string) string {
-	return "`[" + sourceName(source) + "]`"
-}
-
 func sourceName(source string) string {
 	switch source {
 	case "meetup":
 		return "Meetup"
 	case "eventbrite":
 		return "Eventbrite"
+	case "luma":
+		return "Luma"
 	default:
 		return source
 	}
 }
+
+// MarkdownV2 escape: outside code blocks and link URLs, these chars are reserved.
+var mdV2Escape = strings.NewReplacer(
+	`\`, `\\`,
+	`_`, `\_`,
+	`*`, `\*`,
+	`[`, `\[`,
+	`]`, `\]`,
+	`(`, `\(`,
+	`)`, `\)`,
+	`~`, `\~`,
+	"`", "\\`",
+	`>`, `\>`,
+	`#`, `\#`,
+	`+`, `\+`,
+	`-`, `\-`,
+	`=`, `\=`,
+	`|`, `\|`,
+	`{`, `\{`,
+	`}`, `\}`,
+	`.`, `\.`,
+	`!`, `\!`,
+)
+
+// MarkdownV2 code-block escape: only `\` and `` ` `` need escaping inside `...`.
+var mdV2Code = strings.NewReplacer(
+	`\`, `\\`,
+	"`", "\\`",
+)
+
+// MarkdownV2 URL escape: only `)` and `\` need escaping inside link target.
+var mdV2URL = strings.NewReplacer(
+	`\`, `\\`,
+	`)`, `\)`,
+)
+
+func escMD(s string) string    { return mdV2Escape.Replace(s) }
+func escMDURL(s string) string { return mdV2URL.Replace(s) }
+func codeMD(s string) string   { return "`" + mdV2Code.Replace(s) + "`" }
