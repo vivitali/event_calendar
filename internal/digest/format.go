@@ -12,6 +12,15 @@ import (
 
 const telegramMaxLen = 4096
 
+// winnipegLoc renders dates/times in local Manitoba time. Falls back to UTC
+// if the tzdata isn't available (very unlikely on Lambda's Amazon Linux).
+var winnipegLoc = func() *time.Location {
+	if l, err := time.LoadLocation("America/Winnipeg"); err == nil {
+		return l
+	}
+	return time.UTC
+}()
+
 var periodOrder = []string{"Today", "This Week", "Next Week", "Later"}
 
 // FormatEventsMessage renders a MarkdownV2 Telegram digest of the events,
@@ -130,7 +139,12 @@ func writeEvent(sb *strings.Builder, e models.Event) {
 
 	var meta []string
 	if !e.StartTime.IsZero() {
-		meta = append(meta, codeMD(e.StartTime.Format("Mon Jan 2")))
+		local := e.StartTime.In(winnipegLoc)
+		layout := "Mon Jan 2"
+		if local.Hour() != 0 || local.Minute() != 0 {
+			layout = "Mon Jan 2 · 3:04 PM"
+		}
+		meta = append(meta, codeMD(local.Format(layout)))
 	}
 	switch v := cleanVenue(e.Venue); {
 	case v == "":

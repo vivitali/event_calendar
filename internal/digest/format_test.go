@@ -36,8 +36,8 @@ func TestFormatEventsMessage_GroupsAndHeaders(t *testing.T) {
 		"— [Meetup](https://e/1)",
 		"— [Eventbrite](https://e/2)",
 		"— [Meetup](https://e/3)",
-		"`Wed Jan 7`",  // date in monospace
-		"📍 `Hub`",      // venue with pin emoji
+		"`Wed Jan 7 · ", // date with time prefix
+		"📍 `Hub`",       // venue with pin emoji
 		`\#WinnipegTech`,
 		`\#TechEvents`,
 	} {
