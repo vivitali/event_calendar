@@ -91,6 +91,27 @@ func TestRunEventsDigest_TestMode(t *testing.T) {
 	}
 }
 
+func TestRunEventsDigest_SendError_PreservesCount(t *testing.T) {
+	now := time.Date(2026, 1, 7, 12, 0, 0, 0, time.UTC)
+	scraper := &fakeScraper{events: []models.Event{
+		{Name: "F1", StartTime: now.Add(24 * time.Hour), Source: "meetup", URL: "https://e/1"},
+		{Name: "F2", StartTime: now.Add(48 * time.Hour), Source: "meetup", URL: "https://e/2"},
+	}}
+	sender := &fakeSender{err: errors.New("chat not found")}
+	cfg := config.Config{BotToken: "tok", ChatID: "chat"}
+
+	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg)
+	if res.Success {
+		t.Errorf("expected failure on send error: %+v", res)
+	}
+	if res.EventsCount != 2 {
+		t.Errorf("expected EventsCount=2 to be preserved on send error, got %d", res.EventsCount)
+	}
+	if res.MessageSent {
+		t.Errorf("MessageSent should be false on send error")
+	}
+}
+
 func TestRunEventsDigest_ScraperError(t *testing.T) {
 	now := time.Date(2026, 1, 7, 12, 0, 0, 0, time.UTC)
 	scraper := &fakeScraper{err: errors.New("network down")}

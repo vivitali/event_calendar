@@ -66,7 +66,7 @@ func RunEventsDigest(deps EventsDeps, cfg config.Config) Result {
 	}
 
 	if err := deps.Sender.SendMessage(cfg.ChatID, message); err != nil {
-		return Result{Error: fmt.Sprintf("send failed: %v", err)}
+		return Result{EventsCount: len(future), Error: fmt.Sprintf("send failed: %v", err)}
 	}
 	return Result{Success: true, EventsCount: len(future), MessageSent: true}
 }
