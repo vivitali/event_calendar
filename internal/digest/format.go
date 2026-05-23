@@ -31,7 +31,7 @@ func FormatEventsMessage(events []models.Event, now time.Time) string {
 		if len(bucket) == 0 {
 			continue
 		}
-		fmt.Fprintf(&sb, "*%s*\n", period)
+		fmt.Fprintf(&sb, "*%s*\n", bucketHeader(period, now))
 		for _, e := range bucket {
 			writeEvent(&sb, e)
 		}
@@ -65,23 +65,48 @@ func groupEvents(events []models.Event, now time.Time) map[string][]models.Event
 	return groups
 }
 
+// bucketHeader returns a Markdown header label with a date range so readers
+// know at a glance what window each bucket covers. The "Later" bucket has no
+// fixed range so the label stays bare.
+func bucketHeader(period string, now time.Time) string {
+	y, m, d := now.Date()
+	today := time.Date(y, m, d, 0, 0, 0, 0, now.Location())
+	startOfWeek := today.AddDate(0, 0, -int(today.Weekday()))
+	endOfWeek := startOfWeek.AddDate(0, 0, 6)
+	startOfNext := startOfWeek.AddDate(0, 0, 7)
+	endOfNext := startOfNext.AddDate(0, 0, 6)
+
+	switch period {
+	case "Today":
+		return fmt.Sprintf("Today (%s)", today.Format("Mon, Jan 2"))
+	case "This Week":
+		return fmt.Sprintf("This Week (%s – %s)",
+			startOfWeek.Format("Jan 2"), endOfWeek.Format("Jan 2"))
+	case "Next Week":
+		return fmt.Sprintf("Next Week (%s – %s)",
+			startOfNext.Format("Jan 2"), endOfNext.Format("Jan 2"))
+	default:
+		return period
+	}
+}
+
 func writeEvent(sb *strings.Builder, e models.Event) {
 	name := escapeMarkdown(strings.TrimSpace(e.Name))
 	if e.URL != "" {
-		fmt.Fprintf(sb, "• [%s](%s) %s\n", name, e.URL, sourceLabel(e.Source))
+		fmt.Fprintf(sb, "• %s [%s](%s)\n", name, sourceName(e.Source), e.URL)
 	} else {
 		fmt.Fprintf(sb, "• %s %s\n", name, sourceLabel(e.Source))
 	}
 
 	var meta []string
 	if !e.StartTime.IsZero() {
-		meta = append(meta, e.StartTime.Format("Mon Jan 2"))
+		meta = append(meta, "`"+e.StartTime.Format("Mon Jan 2")+"`")
 	}
 	if v := cleanVenue(e.Venue); v != "" {
-		meta = append(meta, v)
+		meta = append(meta, "`"+v+"`")
 	}
 	if e.Price != "" && e.Price != "Free" {
-		meta = append(meta, e.Price)
+		meta = append(meta, "`"+e.Price+"`")
 	}
 	if len(meta) > 0 {
 		fmt.Fprintf(sb, "  %s\n", strings.Join(meta, " · "))
@@ -112,12 +137,16 @@ func escapeMarkdown(s string) string {
 }
 
 func sourceLabel(source string) string {
+	return "`[" + sourceName(source) + "]`"
+}
+
+func sourceName(source string) string {
 	switch source {
 	case "meetup":
-		return "`[Meetup]`"
+		return "Meetup"
 	case "eventbrite":
-		return "`[Eventbrite]`"
+		return "Eventbrite"
 	default:
-		return "`[" + source + "]`"
+		return source
 	}
 }

@@ -27,14 +27,17 @@ func TestFormatEventsMessage_GroupsAndHeaders(t *testing.T) {
 	for _, want := range []string{
 		"Winnipeg Tech Events",
 		"3 upcoming",
-		"*Today*",
-		"*This Week*",
-		"*Next Week*",
-		"[Today Event](https://e/1)",
-		"[Friday Event](https://e/2)",
-		"[Next Week Event](https://e/3)",
-		"[Meetup]",
-		"[Eventbrite]",
+		"*Today (Wed, Jan 7)*",
+		"*This Week (Jan 4 – Jan 10)*",
+		"*Next Week (Jan 11 – Jan 17)*",
+		"Today Event",
+		"Friday Event",
+		"Next Week Event",
+		"[Meetup](https://e/1)",
+		"[Eventbrite](https://e/2)",
+		"[Meetup](https://e/3)",
+		"`Wed Jan 7`",    // date in monospace
+		"`Hub`",          // venue in monospace
 		"#WinnipegTech",
 		"#TechEvents",
 	} {
