@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"event_calendar/internal/annual"
 	"event_calendar/internal/models"
 )
 
 func TestFormatEventsMessage_Empty(t *testing.T) {
 	now := time.Date(2026, 1, 7, 12, 0, 0, 0, time.UTC)
-	got := FormatEventsMessage(nil, now)
+	got := FormatEventsMessage(nil, nil, now)
 	if !strings.Contains(got, "No upcoming events") {
 		t.Errorf("expected empty-state message, got: %s", got)
 	}
@@ -23,7 +24,7 @@ func TestFormatEventsMessage_GroupsAndHeaders(t *testing.T) {
 		{Name: "Friday Event", URL: "https://e/2", Source: "eventbrite", StartTime: time.Date(2026, 1, 9, 18, 0, 0, 0, time.UTC)},
 		{Name: "Next Week Event", URL: "https://e/3", Source: "meetup", StartTime: time.Date(2026, 1, 14, 18, 0, 0, 0, time.UTC)},
 	}
-	msg := FormatEventsMessage(events, now)
+	msg := FormatEventsMessage(events, nil, now)
 	for _, want := range []string{
 		"Winnipeg Tech Events",
 		"3 upcoming",
@@ -52,7 +53,7 @@ func TestFormatEventsMessage_DropsGenericVenue(t *testing.T) {
 	events := []models.Event{
 		{Name: "X", URL: "https://e/x", Source: "eventbrite", StartTime: now.Add(24 * time.Hour), Venue: "Event"},
 	}
-	msg := FormatEventsMessage(events, now)
+	msg := FormatEventsMessage(events, nil, now)
 	if strings.Contains(msg, "Event\n") || strings.Contains(msg, "`Event`") {
 		t.Errorf("generic 'Event' venue should be dropped:\n%s", msg)
 	}
@@ -63,19 +64,21 @@ func TestFormatEventsMessage_RendersOnlineVenue(t *testing.T) {
 	events := []models.Event{
 		{Name: "Y", URL: "https://e/y", Source: "meetup", StartTime: now.Add(24 * time.Hour), Venue: "Online"},
 	}
-	msg := FormatEventsMessage(events, now)
+	msg := FormatEventsMessage(events, nil, now)
 	if !strings.Contains(msg, "💻 Online") {
 		t.Errorf("expected '💻 Online' marker for online venue:\n%s", msg)
 	}
 }
 
 func TestFormatEventsMessage_HasExpandableAnnualFooter(t *testing.T) {
-	// Use a now well before all annual events so the footer is present.
 	now := time.Date(2026, 1, 7, 12, 0, 0, 0, time.UTC)
 	events := []models.Event{
 		{Name: "X", URL: "https://e/x", Source: "meetup", StartTime: now.Add(24 * time.Hour)},
 	}
-	msg := FormatEventsMessage(events, now)
+	annualEvts := []annual.AnnualEvent{
+		{Name: "Prairie Dev Con", Date: time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC), URL: "https://www.prairiedevcon.com/"},
+	}
+	msg := FormatEventsMessage(events, annualEvts, now)
 	if !strings.Contains(msg, "**>📌 Save the date") {
 		t.Errorf("missing expandable blockquote opener:\n%s", msg)
 	}
@@ -95,7 +98,7 @@ func TestFormatEventsMessage_TruncatesLong(t *testing.T) {
 			StartTime: now.Add(time.Duration(i) * time.Hour),
 		})
 	}
-	msg := FormatEventsMessage(events, now)
+	msg := FormatEventsMessage(events, nil, now)
 	if len(msg) > 4096 {
 		t.Errorf("message exceeded Telegram limit: %d chars", len(msg))
 	}

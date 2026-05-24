@@ -8,6 +8,7 @@ import (
 	"log"
 	"time"
 
+	"event_calendar/internal/annual"
 	"event_calendar/internal/config"
 	"event_calendar/internal/digest"
 	"event_calendar/internal/models"
@@ -40,7 +41,7 @@ type Result struct {
 
 // RunEventsDigest scrapes upcoming events, formats a digest, and sends it to
 // the configured chat. In TestMode the digest is built but not sent.
-func RunEventsDigest(deps EventsDeps, cfg config.Config) Result {
+func RunEventsDigest(deps EventsDeps, cfg config.Config, annualEvts []annual.AnnualEvent) Result {
 	period := time.Duration(cfg.PeriodDays) * 24 * time.Hour
 	events, err := deps.Scraper.ScrapeEvents(cfg.City, cfg.Categories, period)
 	if err != nil {
@@ -54,7 +55,7 @@ func RunEventsDigest(deps EventsDeps, cfg config.Config) Result {
 		return Result{Success: true, EventsCount: 0}
 	}
 
-	message := digest.FormatEventsMessage(future, deps.Now)
+	message := digest.FormatEventsMessage(future, annualEvts, deps.Now)
 
 	if cfg.TestMode {
 		log.Printf("test mode: would have sent %d chars", len(message))

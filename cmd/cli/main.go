@@ -46,7 +46,7 @@ func runEvents(cfg config.Config) jobs.Result {
 	factory := scraping.NewScrapingServiceFactory()
 	scraper := factory.CreateDefaultService()
 	sender := telegram.NewService(cfg.BotToken)
-	return jobs.RunEventsDigest(jobs.EventsDeps{Scraper: scraper, Sender: sender, Now: time.Now()}, cfg)
+	return jobs.RunEventsDigest(jobs.EventsDeps{Scraper: scraper, Sender: sender, Now: time.Now()}, cfg, nil)
 }
 
 func runPoll(cfg config.Config) jobs.Result {

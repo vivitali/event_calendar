@@ -49,7 +49,7 @@ func runEvents(cfg config.Config) jobs.Result {
 		Scraper: scraper,
 		Sender:  sender,
 		Now:     time.Now(),
-	}, cfg)
+	}, cfg, nil)
 }
 
 func runPoll(cfg config.Config) jobs.Result {

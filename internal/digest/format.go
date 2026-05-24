@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"event_calendar/internal/annual"
 	"event_calendar/internal/models"
 	"event_calendar/internal/timeutil"
 )
@@ -30,7 +31,7 @@ var periodOrder = []string{"Today", "This Week", "Next Week", "Later"}
 // blockquote → tracker credit + hashtags. When the message would exceed
 // the Telegram limit we truncate the event list (never the trailing
 // blockquote or hashtags) so the resulting message still parses cleanly.
-func FormatEventsMessage(events []models.Event, now time.Time) string {
+func FormatEventsMessage(events []models.Event, annualEvts []annual.AnnualEvent, now time.Time) string {
 	if len(events) == 0 {
 		return "📅 *No upcoming events found* for Winnipeg tech community\\."
 	}
@@ -39,7 +40,7 @@ func FormatEventsMessage(events []models.Event, now time.Time) string {
 		escMD(now.Format("Mon Jan 2")), len(events))
 
 	var trailer strings.Builder
-	if af := annualFooter(now); af != "" {
+	if af := annualFooter(annualEvts, now); af != "" {
 		trailer.WriteString(af)
 		trailer.WriteString("\n")
 	}
@@ -164,8 +165,8 @@ func writeEvent(sb *strings.Builder, e models.Event) {
 
 // annualFooter renders future annual events as an expandable MarkdownV2 quote.
 // Returns "" when there's nothing to show.
-func annualFooter(now time.Time) string {
-	upcoming := futureAnnualEvents(now)
+func annualFooter(events []annual.AnnualEvent, now time.Time) string {
+	upcoming := futureOnly(events, now)
 	if len(upcoming) == 0 {
 		return ""
 	}
@@ -180,6 +181,18 @@ func annualFooter(now time.Time) string {
 		sb.WriteString(line + "\n")
 	}
 	return sb.String()
+}
+
+// futureOnly returns annual events whose date is strictly after now,
+// preserving caller-supplied order.
+func futureOnly(events []annual.AnnualEvent, now time.Time) []annual.AnnualEvent {
+	out := make([]annual.AnnualEvent, 0, len(events))
+	for _, e := range events {
+		if e.Date.After(now) {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // cleanVenue drops placeholder strings that add no information. "Online"

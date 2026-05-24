@@ -41,7 +41,7 @@ func TestRunEventsDigest_Success(t *testing.T) {
 	sender := &fakeSender{}
 	cfg := config.Config{BotToken: "tok", ChatID: "chat", City: "Winnipeg", Categories: "tech", PeriodDays: 30}
 
-	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg)
+	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg, nil)
 	if !res.Success {
 		t.Fatalf("expected success, got %+v", res)
 	}
@@ -62,7 +62,7 @@ func TestRunEventsDigest_NoEvents(t *testing.T) {
 	sender := &fakeSender{}
 	cfg := config.Config{BotToken: "tok", ChatID: "chat"}
 
-	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg)
+	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg, nil)
 	if !res.Success {
 		t.Fatalf("expected success even with zero events, got %+v", res)
 	}
@@ -82,7 +82,7 @@ func TestRunEventsDigest_TestMode(t *testing.T) {
 	sender := &fakeSender{}
 	cfg := config.Config{BotToken: "tok", ChatID: "chat", TestMode: true}
 
-	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg)
+	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg, nil)
 	if !res.Success || res.MessageSent {
 		t.Errorf("test mode should succeed without sending: %+v", res)
 	}
@@ -100,7 +100,7 @@ func TestRunEventsDigest_SendError_PreservesCount(t *testing.T) {
 	sender := &fakeSender{err: errors.New("chat not found")}
 	cfg := config.Config{BotToken: "tok", ChatID: "chat"}
 
-	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg)
+	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg, nil)
 	if res.Success {
 		t.Errorf("expected failure on send error: %+v", res)
 	}
@@ -118,7 +118,7 @@ func TestRunEventsDigest_ScraperError(t *testing.T) {
 	sender := &fakeSender{}
 	cfg := config.Config{BotToken: "tok", ChatID: "chat"}
 
-	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg)
+	res := RunEventsDigest(EventsDeps{Scraper: scraper, Sender: sender, Now: now}, cfg, nil)
 	if res.Success {
 		t.Errorf("expected failure on scraper error: %+v", res)
 	}
