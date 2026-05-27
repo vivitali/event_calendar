@@ -66,31 +66,10 @@ if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
     sleep 10
 fi
 
-echo "== Attaching SSM read/write policy to ${ROLE_NAME} =="
-SSM_PARAM_ARN="arn:aws:ssm:${REGION}:${ACCOUNT_ID}:parameter${SSM_PARAM}"
-aws iam put-role-policy \
-    --role-name "$ROLE_NAME" \
-    --policy-name "ssm-annual-events" \
-    --policy-document "{
-        \"Version\": \"2012-10-17\",
-        \"Statement\": [{
-            \"Effect\": \"Allow\",
-            \"Action\": [\"ssm:GetParameter\", \"ssm:PutParameter\"],
-            \"Resource\": \"${SSM_PARAM_ARN}\"
-        }]
-    }" >/dev/null
-
-echo "== Ensuring SSM parameter ${SSM_PARAM} =="
-if ! aws ssm get-parameter --name "$SSM_PARAM" --region "$REGION" >/dev/null 2>&1; then
-    aws ssm put-parameter \
-        --name "$SSM_PARAM" \
-        --type String \
-        --value '[]' \
-        --region "$REGION" >/dev/null
-    echo "  -> created (empty list)"
-else
-    echo "  -> exists; leaving value untouched"
-fi
+# NOTE: the Lambda role's SSM read/write policy and the SSM parameter itself
+# are one-time setup handled by deploy/bootstrap.sh (run by an operator with
+# IAM permissions). The CI deploy role is intentionally not allowed to call
+# iam:PutRolePolicy, so those steps must not live here.
 
 echo "== Deploying Lambda function =="
 if aws lambda get-function --function-name "$FUNCTION_NAME" --region "$REGION" >/dev/null 2>&1; then
