@@ -21,6 +21,17 @@ func TestLoad_DefaultsAndFallbacks(t *testing.T) {
 	if cfg.TestMode {
 		t.Errorf("TestMode should default to false")
 	}
+	if cfg.AnnualSSMParam != "/winnipeg-tech-events/annual-events" {
+		t.Errorf("AnnualSSMParam default = %q", cfg.AnnualSSMParam)
+	}
+}
+
+func TestLoad_AnnualSSMParamOverride(t *testing.T) {
+	t.Setenv("ANNUAL_SSM_PARAM", "/custom/path")
+	cfg := Load()
+	if cfg.AnnualSSMParam != "/custom/path" {
+		t.Errorf("AnnualSSMParam = %q, want /custom/path", cfg.AnnualSSMParam)
+	}
 }
 
 func TestLoad_OverridesAndExplicitPollCreds(t *testing.T) {
