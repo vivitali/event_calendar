@@ -15,6 +15,7 @@
 #   CATEGORIES=tech (default)
 #   PERIOD_DAYS=30 (default)
 #   TEST_MODE=false (default)
+#   ANNUAL_SSM_PARAM=/winnipeg-tech-events/annual-events (default; set by this script)
 set -euo pipefail
 
 FUNCTION_NAME="winnipeg-tech-events"
@@ -22,6 +23,8 @@ REGION="${AWS_REGION:-us-east-1}"
 ROLE_NAME="winnipeg-tech-events-lambda-role"
 RULE_EVENTS="winnipeg-events-weekly"
 RULE_POLL="winnipeg-poll-monthly"
+RULE_ANNUAL="winnipeg-annual-scrape-monthly"
+SSM_PARAM="/winnipeg-tech-events/annual-events"
 RUNTIME="provided.al2023"
 HANDLER="bootstrap"
 TIMEOUT=300
@@ -61,6 +64,32 @@ if ! aws iam get-role --role-name "$ROLE_NAME" >/dev/null 2>&1; then
         --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
     echo "  -> role created; waiting 10s for IAM propagation"
     sleep 10
+fi
+
+echo "== Attaching SSM read/write policy to ${ROLE_NAME} =="
+SSM_PARAM_ARN="arn:aws:ssm:${REGION}:${ACCOUNT_ID}:parameter${SSM_PARAM}"
+aws iam put-role-policy \
+    --role-name "$ROLE_NAME" \
+    --policy-name "ssm-annual-events" \
+    --policy-document "{
+        \"Version\": \"2012-10-17\",
+        \"Statement\": [{
+            \"Effect\": \"Allow\",
+            \"Action\": [\"ssm:GetParameter\", \"ssm:PutParameter\"],
+            \"Resource\": \"${SSM_PARAM_ARN}\"
+        }]
+    }" >/dev/null
+
+echo "== Ensuring SSM parameter ${SSM_PARAM} =="
+if ! aws ssm get-parameter --name "$SSM_PARAM" --region "$REGION" >/dev/null 2>&1; then
+    aws ssm put-parameter \
+        --name "$SSM_PARAM" \
+        --type String \
+        --value '[]' \
+        --region "$REGION" >/dev/null
+    echo "  -> created (empty list)"
+else
+    echo "  -> exists; leaving value untouched"
 fi
 
 echo "== Deploying Lambda function =="
@@ -104,7 +133,8 @@ aws lambda update-function-configuration \
         CITY=${CITY:-Winnipeg},
         CATEGORIES=${CATEGORIES:-tech},
         PERIOD_DAYS=${PERIOD_DAYS:-30},
-        TEST_MODE=${TEST_MODE:-false}
+        TEST_MODE=${TEST_MODE:-false},
+        ANNUAL_SSM_PARAM=${SSM_PARAM}
     }" >/dev/null
 
 echo "== Setting CloudWatch log retention to ${LOG_RETENTION_DAYS} days =="
@@ -151,6 +181,13 @@ create_or_update_rule "$RULE_POLL" \
     "cron(0 14 20 * ? *)" \
     '{"action":"poll"}' \
     "Monthly meetup day-of-week poll"
+
+# 1st of each month, 13:00 UTC — refreshes annual events ahead of the
+# weekly digest (Mondays 14:00 UTC).
+create_or_update_rule "$RULE_ANNUAL" \
+    "cron(0 13 1 * ? *)" \
+    '{"action":"scrape_annual"}' \
+    "Monthly refresh of curated annual events"
 
 echo
 echo "== Done =="
