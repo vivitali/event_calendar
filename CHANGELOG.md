@@ -5,6 +5,11 @@ All notable changes to the Winnipeg Tech Events Scraper & Telegram Sharing Web A
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Annual events footer is now scraped monthly** instead of read from a hardcoded slice. A new Lambda action `scrape_annual` runs on the 1st of each month via EventBridge, scrapes four Winnipeg annual-event sites (Prairie Dev Con, WomenHack, North Forge RampUp, MbTech Week), and persists the next-occurrence dates to SSM Parameter Store. The weekly digest reads the latest result from SSM at send time. Per-site scrape failures retain last-known-good data, so a single broken parser never empties the footer.
+
 ## [1.0.0] - 2025-01-13
 
 ### Added
